@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.tmp/
+coverage/
+/logs/
+src/generated/prisma/

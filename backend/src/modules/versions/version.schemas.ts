@@ -1,0 +1,10 @@
+import { z } from "zod";
+const empty = z.object({}).strict();
+const trip = z.object({ tripId: z.uuid() }).strict();
+const version = z.object({ tripId: z.uuid(), versionId: z.uuid() }).strict();
+export const listVersionsSchema = z.object({ params: trip, query: z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).strict(), body: z.unknown().optional() });
+export const createVersionSchema = z.object({ params: trip, query: empty, body: z.object({ name: z.string().trim().min(1).max(160), expectedRevision: z.number().int().positive() }).strict() });
+export const restoreVersionSchema = z.object({ params: version, query: empty, body: z.object({ expectedRevision: z.number().int().positive(), expectedDraftRevision: z.number().int().positive(), expectedQuoteRevision: z.number().int().positive() }).strict() });
+export type ListVersionsRequest = z.infer<typeof listVersionsSchema>;
+export type CreateVersionRequest = z.infer<typeof createVersionSchema>;
+export type RestoreVersionRequest = z.infer<typeof restoreVersionSchema>;

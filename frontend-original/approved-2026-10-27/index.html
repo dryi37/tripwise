@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tripwise — Bản giao diện đã duyệt trước React</title>
+  <style>
+    :root{font-family:"Segoe UI",Arial,sans-serif;color:#173f35;background:#f3f6f5}
+    *{box-sizing:border-box}body{margin:0}header{position:sticky;top:0;z-index:2;padding:22px 32px;background:#075342;color:#fff;box-shadow:0 6px 24px #173e2d24}header h1{margin:0 0 6px;font-size:23px}header p{margin:0;color:#d8e7e1;font-size:14px}
+    nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}nav a{padding:9px 13px;border:1px solid #ffffff3d;border-radius:8px;color:#fff;text-decoration:none;font-size:13px}nav a:hover,nav a:focus-visible{background:#c3df55;color:#173f35;outline:none}
+    main{width:min(1500px,calc(100% - 40px));margin:28px auto 60px}.notice{padding:16px 18px;border:1px solid #d8e4df;border-radius:12px;background:#fff;line-height:1.65}.notice strong{color:#075342}
+    section{scroll-margin-top:150px;margin-top:28px;padding:20px;border:1px solid #d8e4df;border-radius:15px;background:#fff;box-shadow:0 10px 32px #173e2d0b}section h2{margin:0 0 6px;font-size:19px}section p{margin:0 0 18px;color:#637a72}img{display:block;width:100%;height:auto;border:1px solid #e0e8e4;border-radius:10px;background:#fff}
+    @media(max-width:700px){header{padding:18px 16px}main{width:min(100% - 20px,1500px)}section{padding:10px}header h1{font-size:19px}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Tripwise — giao diện đã duyệt trước khi chuyển React</h1>
+    <p>Đây là bản đối chiếu hình ảnh ngày 27/10/2026, không phải prototype cũ ngày 25/10.</p>
+    <nav aria-label="Đi tới màn hình tham chiếu">
+      <a href="#trips">Chuyến đi</a>
+      <a href="#catalog">Danh mục dịch vụ</a>
+      <a href="#quote">Không gian tư vấn · Báo giá</a>
+    </nav>
+  </header>
+  <main>
+    <div class="notice"><strong>Cách sử dụng:</strong> bạn xem và xác nhận các màn hình bên dưới. Khi sửa React, bố cục, màu sắc, mật độ nội dung, sidebar và cách trình bày báo giá sẽ được căn theo các ảnh này.</div>
+    <section id="trips">
+      <h2>Chuyến đi</h2>
+      <p>Dashboard chuyến đi sau khi đã chỉnh lại phần thống kê và danh sách làm việc.</p>
+      <img src="screenshots/trips-dashboard-approved.png" alt="Giao diện Chuyến đi đã duyệt">
+    </section>
+    <section id="catalog">
+      <h2>Danh mục dịch vụ</h2>
+      <p>Màn hình quản lý dịch vụ và mức giá tham chiếu trước khi gộp sâu vào luồng báo giá.</p>
+      <img src="screenshots/service-catalog-approved.png" alt="Giao diện danh mục dịch vụ đã duyệt">
+    </section>
+    <section id="quote">
+      <h2>Không gian tư vấn · Báo giá</h2>
+      <p>Bố cục báo giá, thanh tab, trợ lý Tripwise và khu vực chi phí đã duyệt.</p>
+      <img src="screenshots/workspace-quote-approved.png" alt="Giao diện báo giá đã duyệt">
+    </section>
+  </main>
+</body>
+</html>

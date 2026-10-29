@@ -1,0 +1,33 @@
+# Dependencies and generated caches
+**/node_modules/
+**/.vite/
+**/coverage/
+**/.tmp/
+**/.tmp-*/
+**/.vitest-*/
+**/.vitest-run-tmp/
+
+# Local environment and secrets
+.env
+.env.*
+!**/.env.example
+
+# Generated backend output and Prisma client
+/backend/dist/
+/backend/src/generated/prisma/
+
+# Local-only logs and audit output
+**/*.log
+/artifacts/logs/
+/artifacts/ui-audit/
+
+# Agent history, backups, and derived frontend restore output
+/.archive/
+/.superpowers/
+/frontend-vanilla-restored/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Root dist is the active static frontend and is intentionally tracked.

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tripwise — Không gian tư vấn</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="redesign.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#trips"><span class="mark">t↗</span><span>tripwise<small>BY IKIGAI</small></span></a>
+    <p class="nav-label">KHÔNG GIAN LÀM VIỆC</p>
+    <nav aria-label="Điều hướng">
+      <a href="#trips" data-nav="trips"><i>▦</i><span>Chuyến đi</span></a>
+      <a href="#workspace" data-nav="workspace"><i>✧</i><span>Không gian tư vấn</span></a>
+      <a href="#knowledge" data-nav="knowledge"><i>▤</i><span>Kho tri thức</span></a>
+      <a href="#rates" data-nav="rates"><i>₫</i><span>Dịch vụ</span></a>
+    </nav>
+    <div class="side-bottom">
+      <a href="#settings">⚙ &nbsp; Cài đặt & dữ liệu</a>
+      <div class="profile"><span class="avatar">K</span><div><b>Tuấn Khôi</b><small>Nhân viên tư vấn</small></div></div>
+    </div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><div class="crumb">Không gian làm việc <span>/</span> <b id="route-label">Chuyến đi</b></div><div class="top-right"><img src="assets/ikigai.png" alt="IKIGAI"></div></header>
+    <main id="app" tabindex="-1"></main>
+    <footer>Tripwise <span>Thiết kế hành trình theo cách của bạn.</span></footer>
+  </div>
+  <dialog id="modal"><div class="modal-head"><h2 id="modal-title"></h2><button class="icon-btn" id="close-modal" aria-label="Đóng">×</button></div><div id="modal-body"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="runtime-config.js"></script>
+  <script src="api-client.js"></script>
+  <script src="app.js"></script>
+  <script src="redesign.js"></script>
+  <script src="api-sync.js"></script>
+</body>
+</html>

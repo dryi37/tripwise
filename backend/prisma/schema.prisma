@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TripStatus {
+  DRAFT
+  IN_PROGRESS
+  REVIEWED
+}
+
+enum QuoteStatus {
+  PARTIAL
+  COMPLETE
+}
+
+enum SupplierOfferStatus {
+  UNVERIFIED
+  VERIFIED
+  INACTIVE
+}
+
+enum QuoteItemSourceType {
+  CATALOG
+  MANUAL
+  EXTERNAL
+  UNPRICED
+}
+
+enum ExternalVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+}
+
+enum QuoteItemPriceStatus {
+  SOURCE
+  PRICE_OVERRIDDEN
+  MANUAL
+  NEEDS_REVIEW
+}
+
+enum IdempotencyState {
+  IN_PROGRESS
+  SUCCEEDED
+  FAILED
+}
+
+enum KnowledgeStatus {
+  PENDING
+  INDEXED
+  FAILED
+}
+
+model Trip {
+  id                String           @id @db.Uuid
+  title             String           @db.VarChar(160)
+  customerName      String           @map("customer_name") @db.VarChar(120)
+  origin            String           @db.VarChar(120)
+  destination       String           @db.VarChar(120)
+  startDate         DateTime         @map("start_date") @db.Date
+  endDate           DateTime         @map("end_date") @db.Date
+  travelers         Int
+  adultCount        Int              @default(1) @map("adult_count")
+  childCount        Int              @default(0) @map("child_count")
+  customerRequest   String?          @map("customer_request") @db.Text
+  planningStarted   Boolean          @default(false) @map("planning_started")
+  budgetAmountMinor BigInt           @map("budget_amount_minor")
+  budgetCurrency    String           @map("budget_currency") @db.Char(3)
+  status            TripStatus       @default(DRAFT)
+  revision          Int              @default(1)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  itineraryDraft    ItineraryDraft?
+  quote             Quote?
+  versions          PlanVersion[]
+  externalSources   ExternalSource[]
+
+  @@index([updatedAt, id], map: "trips_updated_at_id_idx")
+  @@index([status, updatedAt], map: "trips_status_updated_at_idx")
+  @@map("trips")
+}
+
+model PlanVersion {
+  id        String   @id @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  name      String   @db.VarChar(160)
+  revision  Int
+  snapshot  Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, createdAt, id])
+  @@map("plan_versions")
+}
+
+model ItineraryDraft {
+  id        String          @id @db.Uuid
+  tripId    String          @unique @map("trip_id") @db.Uuid
+  revision  Int             @default(1)
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items     ItineraryItem[]
+
+  @@map("itinerary_drafts")
+}
+
+model ItineraryItem {
+  id               String          @id @db.Uuid
+  draftId          String          @map("draft_id") @db.Uuid
+  dayIndex         Int             @map("day_index")
+  title            String          @db.VarChar(160)
+  location         String          @db.VarChar(200)
+  localStartTime   String          @map("local_start_time") @db.VarChar(5)
+  localEndTime     String          @map("local_end_time") @db.VarChar(5)
+  timezone         String          @db.VarChar(80)
+  description      String          @db.Text
+  sourceUrl        String?         @map("source_url") @db.Text
+  isLocked         Boolean         @default(false) @map("is_locked")
+  externalSourceId String?         @map("external_source_id") @db.Uuid
+  supplierOfferId  String?         @map("supplier_offer_id") @db.Uuid
+  quoteItems       QuoteItem[]
+  draft            ItineraryDraft  @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  externalSource   ExternalSource? @relation(fields: [externalSourceId], references: [id], onDelete: SetNull)
+  supplierOffer    SupplierOffer?  @relation(fields: [supplierOfferId], references: [id], onDelete: SetNull)
+
+  @@index([draftId, dayIndex, localStartTime])
+  @@index([externalSourceId])
+  @@index([supplierOfferId])
+  @@map("itinerary_items")
+}
+
+model Quote {
+  id               String      @id @db.Uuid
+  tripId           String      @unique @map("trip_id") @db.Uuid
+  currency         String      @db.Char(3)
+  status           QuoteStatus @default(PARTIAL)
+  revision         Int         @default(1)
+  totalAmountMinor BigInt      @default(0) @map("total_amount_minor")
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  trip             Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items            QuoteItem[]
+
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id                   String               @id @db.Uuid
+  quoteId              String               @map("quote_id") @db.Uuid
+  serviceId            String?              @map("service_id") @db.Uuid
+  supplierOfferId      String?              @map("supplier_offer_id") @db.Uuid
+  externalSourceId     String?              @map("external_source_id") @db.Uuid
+  itineraryItemId      String?              @unique @map("itinerary_item_id") @db.Uuid
+  name                 String               @db.VarChar(160)
+  category             String               @db.VarChar(60)
+  unit                 String               @db.VarChar(60)
+  quantity             Int
+  unitPriceMinor       BigInt               @map("unit_price_minor")
+  amountMinor          BigInt               @map("amount_minor")
+  sourceType           QuoteItemSourceType  @default(MANUAL) @map("source_type")
+  sourceStatus         SupplierOfferStatus? @map("source_status")
+  priceStatus          QuoteItemPriceStatus @default(MANUAL) @map("price_status")
+  serviceNameSnapshot  String?              @map("service_name_snapshot") @db.VarChar(160)
+  sourceUnitPriceMinor BigInt?              @map("source_unit_price_minor")
+  termsSnapshot        String?              @map("terms_snapshot") @db.Text
+  sourceUrlSnapshot    String?              @map("source_url_snapshot") @db.Text
+  validUntilSnapshot   DateTime?            @map("valid_until_snapshot") @db.Date
+  quote                Quote                @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  service              Service?             @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  supplierOffer        SupplierOffer?       @relation(fields: [supplierOfferId], references: [id], onDelete: SetNull)
+  externalSource       ExternalSource?      @relation(fields: [externalSourceId], references: [id], onDelete: SetNull)
+  itineraryItem        ItineraryItem?       @relation(fields: [itineraryItemId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
+  @@index([serviceId])
+  @@index([supplierOfferId])
+  @@index([externalSourceId])
+  @@map("quote_items")
+}
+
+model ExternalSource {
+  id                  String                     @id @db.Uuid
+  tripId              String                     @map("trip_id") @db.Uuid
+  resultKey           String                     @map("result_key") @db.VarChar(240)
+  placeName           String                     @map("place_name") @db.VarChar(200)
+  publisher           String                     @db.VarChar(200)
+  domain              String                     @db.VarChar(200)
+  canonicalUrl        String                     @map("canonical_url") @db.Text
+  title               String                     @db.VarChar(300)
+  excerpt             String                     @db.Text
+  retrievedAt         DateTime                   @map("retrieved_at") @db.Timestamptz(3)
+  originalAmountMinor BigInt                     @map("original_amount_minor")
+  originalCurrency    String                     @map("original_currency") @db.Char(3)
+  pricingUnit         String                     @map("pricing_unit") @db.VarChar(60)
+  audience            String                     @db.VarChar(60)
+  suitable            Boolean
+  confidence          Float
+  verificationStatus  ExternalVerificationStatus @default(UNVERIFIED) @map("verification_status")
+  evidence            Json
+  createdAt           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  trip                Trip                       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  itineraryItems      ItineraryItem[]
+  quoteItems          QuoteItem[]
+
+  @@unique([tripId, canonicalUrl])
+  @@index([tripId, createdAt])
+  @@map("external_sources")
+}
+
+model Service {
+  id         String         @id @db.Uuid
+  name       String         @db.VarChar(160)
+  category   String         @db.VarChar(60)
+  tags       String[]       @default([])
+  unit       String         @db.VarChar(60)
+  isActive   Boolean        @default(true) @map("is_active")
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  offer      SupplierOffer?
+  quoteItems QuoteItem[]
+
+  @@index([category, isActive])
+  @@index([name])
+  @@map("services")
+}
+
+model SupplierOffer {
+  id             String              @id @db.Uuid
+  serviceId      String              @unique @map("service_id") @db.Uuid
+  unitPriceMinor BigInt              @map("unit_price_minor")
+  currency       String              @db.Char(3)
+  validFrom      DateTime?           @map("valid_from") @db.Date
+  validUntil     DateTime?           @map("valid_until") @db.Date
+  details        String?             @db.Text
+  status         SupplierOfferStatus @default(UNVERIFIED)
+  isPreferred    Boolean             @default(false) @map("is_preferred")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  service        Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  quoteItems     QuoteItem[]
+  itineraryItems ItineraryItem[]
+
+  @@index([status])
+  @@map("supplier_offers")
+}
+
+model IdempotencyRecord {
+  id           String           @id @db.Uuid
+  key          String           @unique @db.VarChar(200)
+  requestHash  String           @map("request_hash") @db.Char(64)
+  state        IdempotencyState @default(IN_PROGRESS)
+  statusCode   Int?             @map("status_code")
+  responseBody Json?            @map("response_body")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("idempotency_records")
+}
+
+model KnowledgeDocument {
+  id          String           @id @db.Uuid
+  title       String           @db.VarChar(200)
+  sourceLabel String?          @map("source_label") @db.VarChar(200)
+  content     String           @db.Text
+  status      KnowledgeStatus  @default(PENDING)
+  contentHash String           @unique @map("content_hash") @db.Char(64)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  chunks      KnowledgeChunk[]
+
+  @@index([createdAt, id])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id            String            @id @db.Uuid
+  documentId    String            @map("document_id") @db.Uuid
+  ordinal       Int
+  content       String            @db.Text
+  qdrantPointId String            @unique @map("qdrant_point_id") @db.Uuid
+  tokenEstimate Int               @map("token_estimate")
+  document      KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, ordinal])
+  @@map("knowledge_chunks")
+}
