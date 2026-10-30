@@ -4,7 +4,6 @@ import { tripStatuses } from "./trip.types.js";
 
 const emptyObject = z.object({}).strict();
 const tripIdParams = z.object({ tripId: z.uuid() }).strict();
-
 const createTripBody = z.object({
   title: z.string().trim().min(1).max(160),
   customerName: z.string().trim().min(1).max(120),

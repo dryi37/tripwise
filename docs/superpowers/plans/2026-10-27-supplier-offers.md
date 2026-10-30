@@ -4,7 +4,7 @@
 
 **Goal:** Replace one sample price per service with grouped, selectable supplier offers whose chosen values are snapshotted into trip quotes.
 
-**Architecture:** Keep the buildless browser-local prototype. `dist/app.js` remains the data/validation owner; `dist/redesign.js` owns the upgraded composition; `dist/redesign.css` owns responsive presentation. Existing state is migrated at load time.
+**Architecture:** Keep the buildless browser-local prototype. `frontend/app.js` remains the data/validation owner; `frontend/redesign.js` owns the upgraded composition; `frontend/redesign.css` owns responsive presentation. Existing state is migrated at load time.
 
 **Tech Stack:** Vanilla JavaScript, semantic HTML, CSS, localStorage, browser QA scripts.
 
@@ -30,7 +30,7 @@
 ### Task 1: Provider-aware data and behavior
 
 **Files:**
-- Modify: `dist/app.js`
+- Modify: `frontend/app.js`
 - Create: `scripts/qa/qa-supplier-offers.cjs`
 
 **Interfaces:**
@@ -44,9 +44,9 @@
 ### Task 2: Grouped supplier-offer interface
 
 **Files:**
-- Modify: `dist/redesign.js`
-- Modify: `dist/redesign.css`
-- Modify: `dist/index.html`
+- Modify: `frontend/redesign.js`
+- Modify: `frontend/redesign.css`
+- Modify: `frontend/index.html`
 - Modify: `DESIGN.md`
 - Modify: `UX-CONTRACT.md`
 

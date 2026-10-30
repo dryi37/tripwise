@@ -51,7 +51,7 @@ function testApp(repository = new MemoryCatalogRepository()) {
   });
   return createTestApp({
     tripService: new TripService(trips),
-    planningService: new PlanningService(trips, new InMemoryPlanningRepository()),
+    planningService: new PlanningService(trips, new InMemoryPlanningRepository(), undefined, undefined, undefined, "Asia/Ho_Chi_Minh"),
     catalogService,
   });
 }

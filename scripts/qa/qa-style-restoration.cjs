@@ -1,7 +1,7 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const css = fs.readFileSync('dist/redesign.css', 'utf8');
+const css = fs.readFileSync('frontend/redesign.css', 'utf8');
 
 const requiredSelectors = [
   '.knowledge-explainer{',

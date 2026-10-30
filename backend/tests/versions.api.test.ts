@@ -18,7 +18,7 @@ class MemoryVersions implements PlanVersionRepository {
 
 async function setup() {
   let id = 0; const dependencies = { createId: () => `00000000-0000-4000-8000-${String(++id).padStart(12, "0")}`, now: () => new Date("2026-10-27T09:00:00.000Z") };
-  const trips = new InMemoryTripRepository(); const tripService = new TripService(trips, dependencies); const planningService = new PlanningService(trips, new InMemoryPlanningRepository(), dependencies);
+  const trips = new InMemoryTripRepository(); const tripService = new TripService(trips, dependencies); const planningService = new PlanningService(trips, new InMemoryPlanningRepository(), dependencies, undefined, undefined, "Asia/Ho_Chi_Minh");
   const trip = await tripService.create({ title: "Seoul", customerName: "Minh", origin: "HCM", destination: "Seoul", startDate: "2027-04-05", endDate: "2027-04-09", travelers: 6, budgetAmountMinor: 120_000_000, budgetCurrency: "VND" });
   const versionService = new VersionService(new MemoryVersions(), tripService, planningService, dependencies);
   return { app: createTestApp({ tripService, planningService, versionService }), trip };

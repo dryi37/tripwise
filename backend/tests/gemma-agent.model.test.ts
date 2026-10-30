@@ -13,7 +13,6 @@ import type { AgentModelInput } from "../src/modules/agent/agent-model.js";
 const gemmaConfig: GemmaAgentConfig = {
   requestTimeoutMs: 60_000, maxRetries: 7, maxToolResultContextChars: 13_000,
   retryBaseDelayMs: 250, retryMaxDelayMs: 5_000, maxOutputTokens: 2_048,
-  researchCallsMinimum: 8, researchCallsPerTripDay: 4,
 };
 const createGemmaAgentModel = (apiKey: string | undefined, model = "test-model") => new GemmaAgentModel(apiKey, model, gemmaConfig);
 
@@ -106,7 +105,7 @@ describe("GemmaAgentModel provider retries", () => {
 
   it("forces an itinerary activity after a requested itinerary is blocked for being empty", async () => {
     generateContent.mockReset().mockResolvedValue({
-      functionCalls: [{ name: "add_itinerary_item", args: { dayIndex: 1, title: "Seoul walk", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", timezone: "Asia/Seoul", description: "Gợi ý tham quan", unpricedReason: "Chưa có nguồn giá đáng tin cậy." } }],
+      functionCalls: [{ name: "add_itinerary_item", args: { dayIndex: 1, title: "Seoul walk", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", description: "Gợi ý tham quan", unpricedReason: "Chưa có nguồn giá đáng tin cậy." } }],
     });
     const model = createGemmaAgentModel("test-key");
 
@@ -127,7 +126,7 @@ describe("GemmaAgentModel provider retries", () => {
   });
 
   it("forces itinerary creation after the research phase has consumed eight calls", async () => {
-    generateContent.mockReset().mockResolvedValue({ functionCalls: [{ name: "add_itinerary_item", args: { dayIndex: 1, title: "Seoul walk", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", timezone: "Asia/Seoul", description: "Gợi ý tham quan", unpricedReason: "Chưa có nguồn giá đáng tin cậy." } }] });
+    generateContent.mockReset().mockResolvedValue({ functionCalls: [{ name: "add_itinerary_item", args: { dayIndex: 1, title: "Seoul walk", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", description: "Gợi ý tham quan", unpricedReason: "Chưa có nguồn giá đáng tin cậy." } }] });
     const model = createGemmaAgentModel("test-key");
 
     await model.decide({
@@ -247,17 +246,18 @@ describe("GemmaAgentModel prompt context", () => {
     expect(JSON.stringify(compacted)).toContain("LODGING");
   });
 
-  it("passes five web results and full page content to the agent", () => {
+  it("passes five web results without full page content", () => {
     const results = Array.from({ length: 5 }, (_, index) => ({
       id: `source-${index}`, title: `Place ${index}`, url: `https://example.com/${index}`,
-      excerpt: `Snippet ${index}`, rawContent: `Full page evidence ${index} `.repeat(200),
+      excerpt: `Snippet ${index}`,
     }));
 
     const compacted = compactToolResultsForPrompt([{ tool: "search_web", result: results }], gemmaConfig.maxToolResultContextChars);
     const serialized = JSON.stringify(compacted);
 
     expect(compacted[0]?.result).toHaveLength(5);
-    expect(serialized).toContain("Full page evidence 4");
+    expect(serialized).toContain("Snippet 4");
+    expect(serialized).not.toContain("rawContent");
     expect(serialized).not.toContain('"omittedCount"');
   });
 

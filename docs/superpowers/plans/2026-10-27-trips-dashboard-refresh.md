@@ -4,7 +4,7 @@
 
 **Goal:** Deliver an advisor-first Trips dashboard with a destination spotlight, clearer trip pipeline, and a more scannable responsive trip queue without changing behavior.
 
-**Architecture:** Keep the buildless rendering model. Update only the Trips-route presentation in `dist/redesign.js`, add scoped dashboard styling in `dist/redesign.css`, and extend the existing browser QA rather than introducing dependencies.
+**Architecture:** Keep the buildless rendering model. Update only the Trips-route presentation in `frontend/redesign.js`, add scoped dashboard styling in `frontend/redesign.css`, and extend the existing browser QA rather than introducing dependencies.
 
 **Tech Stack:** Vanilla JavaScript, semantic HTML strings, CSS, existing Node-based QA scripts.
 
@@ -30,7 +30,7 @@
 ### Task 1: Trips dashboard semantic composition
 
 **Files:**
-- Modify: `dist/redesign.js`
+- Modify: `frontend/redesign.js`
 - Test: existing Node QA scripts and browser DOM assertions
 
 **Interfaces:**
@@ -44,7 +44,7 @@
 ### Task 2: Scoped visual system and responsive behavior
 
 **Files:**
-- Modify: `dist/redesign.css`
+- Modify: `frontend/redesign.css`
 
 **Interfaces:**
 - Consumes: semantic classes emitted by Task 1 and existing root tokens.

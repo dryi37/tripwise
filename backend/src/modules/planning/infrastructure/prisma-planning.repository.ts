@@ -31,11 +31,17 @@ const itineraryItem = (row: DbItineraryItem): ItineraryItem => ({
   id: row.id,
   dayIndex: row.dayIndex,
   title: row.title,
-  location: row.location,
   localStartTime: row.localStartTime,
   localEndTime: row.localEndTime,
   timezone: row.timezone,
   description: row.description,
+  selectionReason: row.selectionReason,
+  placeProvider: row.placeProvider,
+  placeId: row.placeId,
+  placeName: row.placeName,
+  placeAddress: row.placeAddress,
+  placeLatitude: row.placeLatitude,
+  placeLongitude: row.placeLongitude,
   sourceUrl: row.sourceUrl,
   isLocked: row.isLocked,
   externalSourceId: row.externalSourceId,
@@ -88,7 +94,7 @@ export class PrismaPlanningRepository implements PlanningRepository {
       if (current.revision !== expectedRevision) return { kind: "conflict", currentRevision: current.revision } as const;
       const conflict = await this.claimDraft(tx, current.id, tripId, expectedRevision, now);
       if (conflict) return conflict;
-      await tx.itineraryItem.create({ data: { ...item, sourceUrl: item.sourceUrl ?? null, draftId: current.id } });
+      await tx.itineraryItem.create({ data: { ...item, selectionReason: item.selectionReason ?? null, placeProvider: item.placeProvider ?? null, placeId: item.placeId ?? null, placeName: item.placeName ?? null, placeAddress: item.placeAddress ?? null, placeLatitude: item.placeLatitude ?? null, placeLongitude: item.placeLongitude ?? null, sourceUrl: item.sourceUrl ?? null, draftId: current.id } });
       return { kind: "updated", value: draft(await this.readDraft(tx, current.id)) } as const;
     });
   }

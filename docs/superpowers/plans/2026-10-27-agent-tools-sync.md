@@ -64,7 +64,7 @@
 
 **Files:**
 - Modify: `backend/src/modules/agent/{tour-agent.controller,tour-agent.routes}.ts`, `backend/src/server.ts`
-- Modify: `dist/{api-client.js,redesign.js,redesign.css}`
+- Modify: `frontend/{api-client.js,redesign.js,redesign.css}`
 - Modify: `backend/tests/tour-agent.api.test.ts`
 - Create: `scripts/qa/qa-agent.cjs`
 

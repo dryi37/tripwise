@@ -16,11 +16,11 @@ Replace the browser-rendered Vanilla JavaScript prototype with a maintainable Re
 
 - Backend contract redesign, authentication, permissions, or production deployment.
 - Pixel-for-pixel preservation of accidental prototype behavior.
-- Keeping `dist/app.js`, `dist/redesign.js`, or `dist/api-sync.js` in the final runtime.
+- Keeping `frontend/app.js`, `frontend/redesign.js`, or `frontend/api-sync.js` in the final runtime.
 
 ## Approach
 
-Use a parallel React application in `frontend/` and migrate complete feature slices against the existing API. Reuse visual assets and translate the current CSS into application tokens and focused component styles. After parity checks, Vite's production output becomes `dist/` and the legacy runtime files are retired.
+Use a parallel React application in `frontend/` and migrate complete feature slices against the existing API. Reuse visual assets and translate the current CSS into application tokens and focused component styles. After parity checks, Vite's production output becomes `frontend/` and the legacy runtime files are retired.
 
 Alternative approaches rejected: wrapping the old DOM scripts inside React would preserve technical debt and duplicate state ownership; a big-bang visual redesign would combine migration risk with unrequested product changes.
 

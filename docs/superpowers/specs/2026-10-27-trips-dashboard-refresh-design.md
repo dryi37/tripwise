@@ -36,8 +36,8 @@ Three directions were considered: dense operations dashboard, image-led travel g
 - Reduced-motion and visible-focus behavior remain supported.
 
 ## Constraints
-- Runtime UI stays buildless in `dist/`.
-- `dist/redesign.js` remains the presentation owner for the Trips route.
-- `dist/redesign.css` remains the runtime visual-token and override owner.
+- Runtime UI stays buildless in `frontend/`.
+- `frontend/redesign.js` remains the presentation owner for the Trips route.
+- `frontend/redesign.css` remains the runtime visual-token and override owner.
 - Existing event delegation and stable element IDs/data attributes must be preserved.
 

@@ -56,7 +56,7 @@ function changesFor(fileName, after = '') {
     const item = event.payload?.item;
     if (item?.type !== 'FileChange') continue;
     for (const [filePath, change] of Object.entries(item.changes || {})) {
-      if (filePath.replace(/\\/g, '/').endsWith(`/dist/${fileName}`)) result.push({ timestamp: event.timestamp, change });
+      if (filePath.replace(/\\/g, '/').endsWith(`/frontend/${fileName}`)) result.push({ timestamp: event.timestamp, change });
     }
   }
   return result;
@@ -135,6 +135,6 @@ fs.writeFileSync(path.join(outputDir, 'app.js'), appJs, 'utf8');
 fs.writeFileSync(path.join(outputDir, 'redesign.js'), redesignJs, 'utf8');
 if (apiClient) fs.writeFileSync(path.join(outputDir, 'api-client.js'), apiClient, 'utf8');
 if (apiSync) fs.writeFileSync(path.join(outputDir, 'api-sync.js'), apiSync, 'utf8');
-if (apiClient) fs.copyFileSync(path.join(root, 'dist', 'runtime-config.js'), path.join(outputDir, 'runtime-config.js'));
+if (apiClient) fs.copyFileSync(path.join(root, 'frontend', 'runtime-config.js'), path.join(outputDir, 'runtime-config.js'));
 
 console.log(JSON.stringify({ outputDir, files: fs.readdirSync(outputDir) }, null, 2));

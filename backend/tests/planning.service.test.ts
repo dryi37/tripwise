@@ -6,6 +6,8 @@ import { InMemoryTripRepository } from "../src/modules/trips/infrastructure/in-m
 import { TripService } from "../src/modules/trips/trip.service.js";
 import { ExternalSourceService } from "../src/modules/external-sources/external-source.service.js";
 import { InMemoryExternalSourceRepository } from "../src/modules/external-sources/infrastructure/in-memory-external-source.repository.js";
+import { PlaceSearchStore } from "../src/modules/places/place-search.store.js";
+import { PlacesService } from "../src/modules/places/places.service.js";
 
 async function setup(catalog?: object) {
   let id = 0;
@@ -26,7 +28,7 @@ async function setup(catalog?: object) {
   });
   const repository = new InMemoryPlanningRepository();
   const externalSources = new ExternalSourceService(new InMemoryExternalSourceRepository(), { createId, now });
-  const service = new PlanningService(tripRepository, repository, { createId, now }, catalog as never, externalSources);
+  const service = new PlanningService(tripRepository, repository, { createId, now }, catalog as never, externalSources, "Asia/Ho_Chi_Minh");
   return { service, repository, trip, externalSources };
 }
 
@@ -36,11 +38,29 @@ const activity = {
   location: "Seoul",
   localStartTime: "09:00",
   localEndTime: "11:00",
-  timezone: "Asia/Seoul",
   description: "Tham quan cung điện",
 };
 
 describe("PlanningService", () => {
+  it("persists the selected Google Place ID and rejects a missing selection when Places is enabled", async () => {
+    let id = 0;
+    const createId = () => `00000000-0000-4000-8000-${String(++id).padStart(12, "0")}`;
+    const now = () => new Date("2026-10-27T04:00:00.000Z");
+    const tripRepository = new InMemoryTripRepository();
+    const tripService = new TripService(tripRepository, { createId, now });
+    const trip = await tripService.create({ title: "Seoul", customerName: "Client", origin: "SGN", destination: "Seoul", startDate: "2027-04-05", endDate: "2027-04-05", travelers: 1, budgetAmountMinor: 1_000_000, budgetCurrency: "VND" });
+    const places = new PlacesService({
+      search: async () => [{ googlePlaceId: "ChIJ-palace", displayName: "Palace", formattedAddress: "Seoul", latitude: 37, longitude: 127 }],
+      getDetails: async (googlePlaceId) => ({ googlePlaceId, displayName: "Palace", formattedAddress: "Seoul", latitude: 37, longitude: 127 }),
+    }, new PlaceSearchStore(60_000, 10, () => 1), tripService, 5);
+    const candidates = await places.search(trip.id, "palace", { tripId: trip.id });
+    const service = new PlanningService(tripRepository, new InMemoryPlanningRepository(), { createId, now }, undefined, undefined, "Asia/Ho_Chi_Minh", undefined, places);
+    const draft = await service.getDraft(trip.id);
+    await expect(service.addItineraryItem(trip.id, { expectedRevision: draft.revision, ...activity })).rejects.toMatchObject({ code: "PLACE_REQUIRED" });
+    const saved = await service.addItineraryItem(trip.id, { expectedRevision: draft.revision, ...activity, googlePlaceId: candidates[0]!.googlePlaceId });
+    expect(saved.items[0]).toMatchObject({ googlePlaceId: "ChIJ-palace" });
+  });
+
   it("adds an itinerary item and increments the draft revision", async () => {
     const { service, trip } = await setup();
     const draft = await service.getDraft(trip.id);
@@ -335,7 +355,7 @@ describe("PlanningService", () => {
     await service.getDraft(trip.id); await service.getQuote(trip.id);
 
     const result = await service.addPlaceFromExternalSource(trip.id, {
-      externalSourceId: source!.id, dayIndex: 1, localStartTime: "10:00", localEndTime: "14:00", timezone: "Asia/Seoul", quantity: 2,
+      externalSourceId: source!.id, dayIndex: 1, localStartTime: "10:00", localEndTime: "14:00", quantity: 2,
     });
 
     expect(result.draft.items[0]).toMatchObject({ title: "Lotte World", externalSourceId: source!.id });
@@ -353,7 +373,7 @@ describe("PlanningService", () => {
     await service.getDraft(trip.id); await service.getQuote(trip.id);
 
     const result = await service.addPlaceFromExternalSource(trip.id, {
-      externalSourceId: source!.id, dayIndex: 1, localStartTime: "10:00", localEndTime: "11:00", timezone: "Asia/Seoul", quantity: 3, unitPriceMinor: 60_000,
+      externalSourceId: source!.id, dayIndex: 1, localStartTime: "10:00", localEndTime: "11:00", quantity: 3, unitPriceMinor: 60_000,
     });
 
     expect(result.quote.items[0]).toMatchObject({
@@ -371,7 +391,7 @@ describe("PlanningService", () => {
     }]);
     await service.getDraft(trip.id); await service.getQuote(trip.id);
 
-    await expect(service.addPlaceFromExternalSource(trip.id, { externalSourceId: source!.id, dayIndex: 1, localStartTime: "10:00", localEndTime: "11:00", timezone: "Asia/Seoul", quantity: 1 }))
+    await expect(service.addPlaceFromExternalSource(trip.id, { externalSourceId: source!.id, dayIndex: 1, localStartTime: "10:00", localEndTime: "11:00", quantity: 1 }))
       .rejects.toMatchObject({ code: "EXTERNAL_SOURCE_NOT_SELECTABLE" });
   });
 });

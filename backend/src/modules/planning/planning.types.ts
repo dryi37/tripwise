@@ -2,11 +2,17 @@ export interface ItineraryItem {
   id: string;
   dayIndex: number;
   title: string;
-  location: string;
   localStartTime: string;
   localEndTime: string;
   timezone: string;
   description: string;
+  selectionReason?: string | null | undefined;
+  placeProvider?: string | null | undefined;
+  placeId?: string | null | undefined;
+  placeName?: string | null | undefined;
+  placeAddress?: string | null | undefined;
+  placeLatitude?: number | null | undefined;
+  placeLongitude?: number | null | undefined;
   sourceUrl?: string | null | undefined;
   isLocked: boolean;
   externalSourceId?: string | null;

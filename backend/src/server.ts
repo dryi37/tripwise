@@ -25,6 +25,11 @@ import { PrismaExternalSourceRepository } from "./modules/external-sources/infra
 import { ExternalSourceService } from "./modules/external-sources/external-source.service.js";
 import { TavilyWebSearchProvider } from "./modules/web-search/infrastructure/tavily.web-search.provider.js";
 import { WebSearchService } from "./modules/web-search/web-search.service.js";
+import { FrankfurterExchangeRateProvider } from "./modules/currency/exchange-rate.provider.js";
+import { PhotonProvider } from "./modules/places/infrastructure/photon.provider.js";
+import { PlaceSearchStore } from "./modules/places/place-search.store.js";
+import { PlacesService } from "./modules/places/places.service.js";
+import { appLogger } from "./shared/observability/agent-logger.js";
 
 const environment = loadEnvironment();
 const qdrantOptions = {
@@ -37,8 +42,14 @@ const tripRepository = new PrismaTripRepository(prisma);
 const tripService = new TripService(tripRepository);
 const catalogService = new CatalogService(new PrismaCatalogRepository(prisma), { searchResultsPerTool: environment.AGENT_SEARCH_RESULTS_PER_TOOL }, new CatalogOfferEmbeddingIndex(new GeminiEmbeddingProvider(environment.GEMINI_API_KEY, environment.EMBEDDING_MODEL), new QdrantVectorStore(environment.QDRANT_URL, environment.QDRANT_CATALOG_COLLECTION, qdrantOptions)));
 const externalSourceService = new ExternalSourceService(new PrismaExternalSourceRepository(prisma));
+const placesService = new PlacesService(
+  new PhotonProvider(environment.PHOTON_API_URL, environment.PHOTON_TIMEOUT_MS, environment.PHOTON_CACHE_TTL_MS),
+  new PlaceSearchStore(environment.PLACE_SEARCH_SELECTION_TTL_MS, environment.PLACE_SEARCH_MAX_SELECTIONS),
+  tripService,
+  environment.AGENT_SEARCH_RESULTS_PER_TOOL,
+);
 const webSearchService = new WebSearchService(new TavilyWebSearchProvider(environment.TAVILY_API_KEY, environment.WEB_SEARCH_TIMEOUT_MS), { now: () => new Date(), maxResults: environment.AGENT_SEARCH_RESULTS_PER_TOOL, staleAfterDays: environment.WEB_SOURCE_STALE_DAYS });
-const planningService = new PlanningService(tripRepository, new PrismaPlanningRepository(prisma), undefined, catalogService, externalSourceService);
+const planningService = new PlanningService(tripRepository, new PrismaPlanningRepository(prisma), undefined, catalogService, externalSourceService, environment.APP_TIMEZONE, new FrankfurterExchangeRateProvider(environment.FX_RATE_API_URL, environment.FX_RATE_TIMEOUT_MS, environment.FX_RATE_CACHE_TTL_MS), placesService);
 const idempotencyService = new IdempotencyService(new PrismaIdempotencyStore(prisma));
 const versionService = new VersionService(new PrismaVersionRepository(prisma), tripService, planningService);
 const knowledgeService = new KnowledgeService(
@@ -57,8 +68,6 @@ const tourAgentService = new TourAgentService(
     retryBaseDelayMs: environment.GEMMA_RETRY_BASE_DELAY_MS,
     retryMaxDelayMs: environment.GEMMA_RETRY_MAX_DELAY_MS,
     maxOutputTokens: environment.GEMMA_MAX_OUTPUT_TOKENS,
-    researchCallsMinimum: environment.GEMMA_RESEARCH_CALLS_MINIMUM,
-    researchCallsPerTripDay: environment.GEMMA_RESEARCH_CALLS_PER_TRIP_DAY,
   }),
   environment.AGENT_MODEL_CALLS_PER_DAY,
   environment.AGENT_TOOL_CALLS_PER_DAY,
@@ -67,21 +76,27 @@ const tourAgentService = new TourAgentService(
   webSearchService,
   externalSourceService,
   environment.AGENT_REQUEST_TIMEOUT_MS,
+  placesService,
 );
-const app = createApp({ tripService, planningService, tourAgentService, catalogService, idempotencyService, versionService, knowledgeService, externalSourceService }, environment);
+const app = createApp({ tripService, planningService, tourAgentService, catalogService, idempotencyService, versionService, knowledgeService, externalSourceService, placesService }, environment);
 
-void catalogService.reindexAllOffers().then(() => console.info(JSON.stringify({ event: "catalog.embedding_index.startup_complete" }))).catch((error: unknown) => console.warn(JSON.stringify({ event: "catalog.embedding_index.startup_failed", error: error instanceof Error ? error.message : "UNKNOWN_ERROR" })));
+appLogger.info({ event: "catalog.embedding_index.startup_started" });
+void catalogService.reindexAllOffers()
+  .then(() => appLogger.info({ event: "catalog.embedding_index.startup_complete" }))
+  .catch((error: unknown) => appLogger.error({ event: "catalog.embedding_index.startup_failed", errorName: error instanceof Error ? error.name : "UNKNOWN_ERROR" }));
 
 const server = app.listen(environment.PORT, () => {
-  console.log(`Tripwise API listening on port ${environment.PORT}`);
+  appLogger.info({ event: "server.started", port: environment.PORT, nodeEnv: environment.NODE_ENV });
 });
 
-async function shutdown(): Promise<void> {
+async function shutdown(signal: "SIGINT" | "SIGTERM"): Promise<void> {
+  appLogger.info({ event: "server.shutdown.started", signal });
   server.close(async () => {
     await prisma.$disconnect();
+    appLogger.info({ event: "server.shutdown.completed" });
     process.exit(0);
   });
 }
 
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+process.on("SIGINT", () => { void shutdown("SIGINT"); });
+process.on("SIGTERM", () => { void shutdown("SIGTERM"); });

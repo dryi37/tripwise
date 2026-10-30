@@ -112,9 +112,9 @@
 - Create: `backend/src/modules/external-sources/external-source.controller.ts`
 - Create: `backend/src/modules/external-sources/external-source.routes.ts`
 - Modify: `backend/src/app.ts`
-- Modify: `dist/api-client.js`
-- Modify: `dist/api-sync.js`
-- Modify: `dist/redesign.js`
+- Modify: `frontend/api-client.js`
+- Modify: `frontend/api-sync.js`
+- Modify: `frontend/redesign.js`
 - Test: `backend/tests/external-sources.api.test.ts`
 - Modify: frontend QA scripts only if assertions need the new persisted data contract.
 

@@ -1,11 +1,11 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const client = fs.readFileSync('dist/api-client.js', 'utf8');
-const runtimeConfig = fs.readFileSync('dist/runtime-config.js', 'utf8');
-const sync = fs.readFileSync('dist/api-sync.js', 'utf8');
-const redesign = fs.readFileSync('dist/redesign.js', 'utf8');
-const html = fs.readFileSync('dist/index.html', 'utf8');
+const client = fs.readFileSync('frontend/api-client.js', 'utf8');
+const runtimeConfig = fs.readFileSync('frontend/runtime-config.js', 'utf8');
+const sync = fs.readFileSync('frontend/api-sync.js', 'utf8');
+const redesign = fs.readFileSync('frontend/redesign.js', 'utf8');
+const html = fs.readFileSync('frontend/index.html', 'utf8');
 
 assert.match(runtimeConfig, /apiBaseUrl/);
 assert.doesNotMatch(client, /localhost|127\.0\.0\.1/);

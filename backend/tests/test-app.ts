@@ -5,6 +5,8 @@ const testAppConfig: AppRuntimeConfig = {
   API_JSON_BODY_LIMIT_BYTES: 1_048_576,
   AGENT_RATE_LIMIT_MAX_REQUESTS: 10,
   AGENT_RATE_LIMIT_WINDOW_MS: 60_000,
+  GOOGLE_PLACES_RATE_LIMIT_MAX_REQUESTS: 30,
+  GOOGLE_PLACES_RATE_LIMIT_WINDOW_MS: 60_000,
 };
 
 export function createTestApp(dependencies: AppDependencies) {

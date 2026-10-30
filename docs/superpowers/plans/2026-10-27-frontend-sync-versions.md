@@ -65,8 +65,8 @@
 ### Task 3: Frontend API client and hydration
 
 **Files:**
-- Create: `dist/api-client.js`
-- Modify: `dist/index.html`, `dist/redesign.js`
+- Create: `frontend/api-client.js`
+- Modify: `frontend/index.html`, `frontend/redesign.js`
 - Create: `scripts/qa/qa-api-sync.cjs`
 
 **Interfaces:**
@@ -82,7 +82,7 @@
 ### Task 4: Replace frontend mutations
 
 **Files:**
-- Modify: `dist/redesign.js`, `dist/redesign.css`
+- Modify: `frontend/redesign.js`, `frontend/redesign.css`
 - Modify: `scripts/qa/qa-api-sync.cjs`, `scripts/qa/qa-supplier-offers.cjs`, `scripts/qa/qa-trips-dashboard.cjs`
 
 **Interfaces:**
@@ -100,7 +100,7 @@
 
 **Files:**
 - Create: backend bootstrap route inside `backend/src/modules/bootstrap/**`
-- Modify: `backend/src/app.ts`, `backend/src/server.ts`, `dist/redesign.js`
+- Modify: `backend/src/app.ts`, `backend/src/server.ts`, `frontend/redesign.js`
 - Test: `backend/tests/bootstrap.api.test.ts`, `scripts/qa/qa-api-sync.cjs`
 
 **Interfaces:**

@@ -41,7 +41,7 @@
 
 - [ ] **Step 1: Add failing static assertions**
 
-Assert that `dist/redesign.js` has no planning tab with key `sources`, no links to `tab=sources`, uses `tab=quote&picker=open`, renders the inline picker from the quote branch, and preserves `rateId`/`offerId` references.
+Assert that `frontend/redesign.js` has no planning tab with key `sources`, no links to `tab=sources`, uses `tab=quote&picker=open`, renders the inline picker from the quote branch, and preserves `rateId`/`offerId` references.
 
 - [ ] **Step 2: Run the focused QA and verify failure**
 
@@ -62,8 +62,8 @@ git commit -m "test: define integrated quote sourcing flow"
 ### Task 2: Integrate source discovery into the quote tab
 
 **Files:**
-- Modify: `dist/redesign.js`
-- Modify: `dist/redesign.css`
+- Modify: `frontend/redesign.js`
+- Modify: `frontend/redesign.css`
 
 **Interfaces:**
 - Consumes: `sourcesContent(t)`, `serviceCard(s,t)`, `sourceQuery`, `sourceFilter`, `sourceCategory`, quote source/snapshot helpers.
@@ -101,7 +101,7 @@ Expected: PASS, including removed-tab and integrated-picker assertions.
 - [ ] **Step 8: Commit the UI slice**
 
 ```bash
-git add dist/redesign.js dist/redesign.css
+git add frontend/redesign.js frontend/redesign.css
 git commit -m "feat: integrate service selection into quotes"
 ```
 
@@ -117,7 +117,7 @@ git commit -m "feat: integrate service selection into quotes"
 
 - [ ] **Step 1: Run syntax and repository QA**
 
-Run: `node --check dist/app.js`, `node --check dist/redesign.js`, `node scripts/qa/qa-supplier-offers.cjs`, and `node scripts/qa/qa-trips-dashboard.cjs`.
+Run: `node --check frontend/app.js`, `node --check frontend/redesign.js`, `node scripts/qa/qa-supplier-offers.cjs`, and `node scripts/qa/qa-trips-dashboard.cjs`.
 Expected: Every command exits 0.
 
 - [ ] **Step 2: Run the strict UI audit**

@@ -1,11 +1,68 @@
 # Tripwise — Progress Handoff
 
-Updated: 2026-10-29 (Asia/Saigon)
+Updated: 2026-10-30 (Asia/Saigon)
+
+## Latest: place itinerary map after the schedule
+
+- Moved the selected day's map beneath its activity timeline and removed the `OPENSTREETMAP` eyebrow from the map heading. Kept required OpenStreetMap attribution visible on the map.
+- Verification: `node --check frontend/redesign.js` and `git diff --check`.
+
+## Latest: agent timeout budget per itinerary day
+
+- Set `AGENT_REQUEST_TIMEOUT_MS=600000` (10 minutes) in local and example backend configuration. The agent applies this as a per-trip-day budget, so a 2-day itinerary receives a 20-minute overall deadline; model and tool call quotas are unchanged.
+- Restart the backend for the updated `.env` value to take effect.
+
+## Latest: application-wide structured logging
+
+- Added request IDs and structured start/completion/failure logs for every API request, including route template, status, duration, and client disconnects. CORS exposes `X-Request-Id`; frontend API failures log the same ID without request bodies.
+- Centralized unexpected/API error logging with safe metadata only. Agent place-search logs now include the searched venue name; provider calls for Photon, Tavily, Frankfurter, Gemini embeddings, and Qdrant record status/count/duration and safe error names. Startup, shutdown, and catalog reindex outcomes are logged.
+- `APP_LOG_FILE` is the required JSONL sink setting in both the backend environment and `.env.example`, pointing to `../artifacts/logs/backend/application.jsonl`. No API keys, request bodies, or prompts are recorded.
+- Verification: backend build and frontend syntax checks passed; a live GET `/api/v1/health` returned 200 and wrote matching start/completion JSONL entries with `X-Request-Id`; `git diff --check` passed. `npm run typecheck` remains blocked by pre-existing stale tests that still reference the removed Google Places provider and old place schema; no automated tests were run.
+
+## Latest: use one configured Vietnam timezone
+
+- Removed timezone from trip and itinerary creation forms and APIs, including the agent tool arguments. Added required `APP_TIMEZONE` configuration; set the local/example value to `Asia/Ho_Chi_Minh`, and the backend applies it whenever it saves or updates an itinerary activity.
+- Removed the trip-level timezone schema change and its unapplied migration. Existing itinerary rows remain as stored; new or edited activities use the configured Vietnam timezone.
+- Updated agent/API fixtures and docs. Prisma client generation, backend typecheck, frontend syntax checks, and `git diff --check` passed. Automated tests were not run.
+
+## Latest: dedicated itinerary completion fallback
+
+- When an explicit itinerary request reaches a final response with missing trip days, the agent enters a dedicated fallback model/tool loop with a compact prompt containing the original request, bounded chronological model/tool history, trip facts, the current draft, and missing day indices.
+- Fallback has a separate model/tool allowance equal to one configured day, regardless of trip duration. It can only add clearly unpriced activities for missing days; the backend rejects searches, price/source fields, duplicate or already-filled days, and other tool calls. It continues correction rounds until all days are filled, its budget is exhausted, or the overall deadline is reached.
+- Final status is computed from the persisted draft. The agent claims completion only when every trip day has an activity; otherwise its summary and warning list remaining day indices. Added `tour_agent.completion_fallback.*` logs for start, rejection, per-activity failure, and final outcome.
+- Verification: backend `npm run typecheck` and `git diff --check` passed. Automated tests were not run.
+
+## Latest: send only Tavily content to the agent
+
+- Removed `include_raw_content` from Tavily requests, stopped mapping `raw_content` into web search results, and removed the `rawContent` field from the shared result type. The agent now receives the cleaned `content` excerpt and normalized metadata without the full page extraction.
+- Updated existing type-level and provider expectations to match. Verification: backend `npm run typecheck` and `git diff --check` passed; automated tests were not run.
+
+## Agent smoke run: two-day Seoul itinerary
+
+- Created test trip `Kiểm thử fallback 2 ngày Seoul 2026-10-29` (20–21 Nov 2026, two adults, 30,000,000 VND). The first API run reached web search and then failed with `WEB_SEARCH_UNAVAILABLE` after a 10-second tool timeout. The second run completed initial supplier/web searches, then Gemini returned HTTP 429 quota exceeded on model turn 2 after all eight configured retries; the completion fallback was not reached and the trip still has no activities.
+- Logs exposed a normal-prompt context-compaction bug: two tool results produced a 135,940-character prompt despite the configured 13,000-character history cap, because one oversized result was never truncated. Updated `compactToolResultsForPrompt` to preserve all history entries while truncating each result fairly within the configured cap.
+- Verification after the compaction fix: backend `npm run typecheck` and `git diff --check` passed. A live rerun is pending available Gemini quota; no automated tests were run.
+
+## Latest: allow source-linked web prices from the agent
+
+- The agent may now add a clearly stated public price when it submits the exact URL returned by `search_web`, the listed amount, its currency, and pricing unit. The backend rejects missing links, non-search-result URLs, and currencies that differ from the trip quote currency; it does not allow the model to override internal catalog prices or convert currencies.
+- Agent-entered public prices are saved as external quote estimates with `UNVERIFIED` source status and remain linked to the itinerary activity. Per-person prices default to the trip's traveler count when quantity is omitted. If the result has no clear amount, the existing no-price/review flow remains.
+- Verification: backend typecheck passed; tests were not run.
 
 ## Latest: paginate the services catalog
 
 - Added ten-row pagination to the services table using the trip-list controls, reset the page when searching, and removed the divider beneath the search toolbar.
-- Verification: `node --check dist/redesign.js` and `node --check dist/app.js` passed. Tests were not run.
+- Verification: `node --check frontend/redesign.js` and `node --check frontend/app.js` passed. Tests were not run.
+
+## 2026-10-29 split internal and external services
+- Added “Nội bộ” and “Bên ngoài” tabs to the services page. The external tab aggregates activities with a saved web URL across trips and joins each activity to its quote row, showing the source link beside the service name without adding a table column.
+- Agent-created sourced activities appear after the API refresh; external entries show their trip, destination, price/status, and publisher when available. Search and pagination work within the selected tab.
+- Verification: frontend JavaScript syntax checks and `git diff --check` passed; tests were not run.
+
+## 2026-10-29 optional internal service price
+- Made the price optional when creating an internal catalog service. A blank price now saves the service without creating a supplier offer, so the table displays “–” and “Chưa có giá” instead of converting the blank input to a zero-price offer.
+- The standalone “Thêm giá dịch vụ” form now starts blank and rejects an empty submission; zero remains a valid explicit price. Existing zero-price offers are not altered automatically.
+- Verification: frontend JavaScript syntax checks and `git diff --check` passed; tests were not run.
 ## Latest: round the services table border
 
 - Added an inset border and 10px corner radius to the services table, matching the trips table while preserving the existing inset and mobile horizontal scroll.
@@ -17,7 +74,7 @@ Updated: 2026-10-29 (Asia/Saigon)
 ## Latest: simplify trip list columns
 
 - Removed the trailing arrow action, separated trip and customer into dedicated columns, and placed guest group before departure date.
-- Verification: `node --check dist/redesign.js` passed. Tests were not run.
+- Verification: `node --check frontend/redesign.js` passed. Tests were not run.
 ## Latest: compact knowledge intro panel
 
 - Reduced the knowledge intro panel padding, icon block, heading, and supporting text to match the compact service guidance panel; kept the same compact sizing on mobile.
@@ -26,12 +83,12 @@ Updated: 2026-10-29 (Asia/Saigon)
 ## Latest: remove page subtitles across workspace tabs
 
 - Removed the explanatory line directly beneath the page title on Trips, Knowledge, Services, and Settings. Trip-specific workspace context and explanatory content inside cards remain intact.
-- Verification: `node --check dist/redesign.js` passed. Tests were not run.
+- Verification: `node --check frontend/redesign.js` passed. Tests were not run.
 ## Latest trips dashboard layout adjustment
 
 - Moved trip search and status filter into the “Chuyến đi của bạn” heading row, aligned to the right on wide screens and stacked responsively on narrow screens.
 - Removed the explanatory line under the heading.
-- Verification: `node --check dist/redesign.js` passed. Browser layout showed search/filter alongside the heading; trip data did not load after refresh because the local API was unreachable. Tests were not run.
+- Verification: `node --check frontend/redesign.js` passed. Browser layout showed search/filter alongside the heading; trip data did not load after refresh because the local API was unreachable. Tests were not run.
 
 ## Latest knowledge library card cleanup
 
@@ -50,7 +107,7 @@ Updated: 2026-10-29 (Asia/Saigon)
 
 - Removed “Môi trường phát triển” and “Dữ liệu được đồng bộ với máy chủ” from the sidebar.
 - Removed sync/server status badges and labels from the trips dashboard and top bar while keeping trip workflow statuses such as “Đang soạn”.
-- The active static frontend is served from `dist/`; matching `dist/index.html`, `dist/redesign.js`, and `dist/api-sync.js` were updated.
+- The active static frontend is served from `frontend/`; matching `frontend/index.html`, `frontend/redesign.js`, and `frontend/api-sync.js` were updated.
 - Verification: JavaScript syntax checks passed; searched the active frontend files and no removed status labels remain. Tests were not run.
 
 ## Latest: connect persisted public sources to quote and itinerary UI
@@ -67,13 +124,13 @@ Updated: 2026-10-29 (Asia/Saigon)
 - Removed supplier input from the add-service and edit-price forms, and updated internal source labels so the frontend no longer reads the deleted `offer.provider` property.
 - Added a named “THAO TÁC” catalog column with edit and delete actions for each offer/service row. Delete asks for confirmation and deactivates the service while retaining historical records.
 - Updated backend test fixtures/contracts to remove the supplier model and API assumptions; removed the obsolete supplier API test.
-- Verification: `npm run typecheck`, `npm run build`, `node --check dist/redesign.js`, `node --check dist/api-sync.js`, and `npx prisma migrate deploy` passed. The migration applied successfully to the dev database. The full test suite was not run.
+- Verification: `npm run typecheck`, `npm run build`, `node --check frontend/redesign.js`, `node --check frontend/api-sync.js`, and `npx prisma migrate deploy` passed. The migration applied successfully to the dev database. The full test suite was not run.
 
 ## Latest follow-up: activity-style service names
 
 - Updated catalog titles to read like itinerary activities (for example, “Dùng bữa tại Seoul”, “Nghỉ tại Seoul Garden Hotel”, and “Di chuyển bằng xe riêng 11 chỗ tại Seoul”). Unknown details remain explicitly marked as unknown.
 - Removed the duplicate unit shown beneath each service title. Units remain next to prices in the price column.
-- Verification: `node scripts/qa/qa-supplier-offers.cjs` and `node --check dist/redesign.js` passed. Dev API confirmed all 11 names; prices and `UNVERIFIED` states were unchanged.
+- Verification: `node scripts/qa/qa-supplier-offers.cjs` and `node --check frontend/redesign.js` passed. Dev API confirmed all 11 names; prices and `UNVERIFIED` states were unchanged.
 
 ## Latest: clearer service names and compact catalog rows
 
@@ -81,7 +138,7 @@ Updated: 2026-10-29 (Asia/Saigon)
 - Kept prices, verification statuses, details, offer IDs, and supplier relations unchanged. Supplier attribution remains available in persisted offer/source data for quote source links and agent use.
 - Removed the supplier column from the service catalog UI and removed supplier names from catalog search. Updated the guidance and search copy to focus on services and supplemental details.
 - Supplemental details now clamp to three lines with an ellipsis; the full text remains available as the cell title on hover. Adjusted table widths for the new column layout.
-- Verification: `node scripts/qa/qa-supplier-offers.cjs` passed; `node --check dist/redesign.js` passed. The development catalog API returned all 11 rows after updates; prices and `UNVERIFIED` statuses remained unchanged, and every offer retained its supplier link.
+- Verification: `node scripts/qa/qa-supplier-offers.cjs` passed; `node --check frontend/redesign.js` passed. The development catalog API returned all 11 rows after updates; prices and `UNVERIFIED` statuses remained unchanged, and every offer retained its supplier link.
 
 ## Latest correction: supplier catalog is a flat service-and-offer table
 
@@ -117,7 +174,7 @@ Updated: 2026-10-29 (Asia/Saigon)
 - Agent itinerary tools accept only a `supplierOfferId` from internal search for linked prices. The backend checks that the offer is active, verified, currency-matched, and valid on the trip start date before writing the activity. It saves the supplier offer id on the itinerary activity and adds the quote line using the same source id; activity and quote can now be correlated after reload. Existing external activities and quote rows continue to share `externalSourceId`.
 - Added Prisma migration `20261028040000_itinerary_offer_links` to persist the internal supplier link on itinerary items. Applied successfully to local PostgreSQL; schema validates.
 - Quote UI now renders selected quote lines in their own section and the available service search list below it. The lower list retains source/category filters and search, shows ten entries per page, and provides previous/next pagination. Existing page layout and navigation remain unchanged.
-- Verification: all 21 backend test files / 99 tests passed; backend typecheck and build passed; Prisma schema valid and local database up to date; frontend static QA passed (`qa-supplier-offers`, `qa-api-sync`, style restoration, icons, and quote inputs); `node --check dist/redesign.js` passed.
+- Verification: all 21 backend test files / 99 tests passed; backend typecheck and build passed; Prisma schema valid and local database up to date; frontend static QA passed (`qa-supplier-offers`, `qa-api-sync`, style restoration, icons, and quote inputs); `node --check frontend/redesign.js` passed.
 
 ## 0.10. Link itinerary activities and quote rows
 
@@ -207,7 +264,7 @@ Existing external sources and activities are preserved; previously stored noisy 
 - Verification: backend tests 20 files / 85 tests passed; typecheck and build passed; frontend QA scripts (`qa-api-sync`, style restoration, icons, quote inputs, trips dashboard) passed; modified browser scripts pass `node --check`.
 ## 1. Current state
 
-Tripwise currently runs as a static JavaScript frontend backed by an Express/TypeScript API. The attempted React/Vite migration was removed because it did not preserve the approved UI. The live frontend is served from `dist/`; `frontend-original/` is reference material only.
+Tripwise currently runs as a static JavaScript frontend backed by an Express/TypeScript API. The attempted React/Vite migration was removed because it did not preserve the approved UI. The live frontend is served from `frontend/`; `frontend-original/` is reference material only.
 
 - Frontend: `http://127.0.0.1:8080/`
 - API: `http://127.0.0.1:3101/api/v1`
@@ -237,7 +294,7 @@ In another terminal:
 
 ```powershell
 cd D:\intern\tripwise
-node scripts/serve-static.cjs dist 8080 127.0.0.1
+node scripts/serve-static.cjs frontend 8080 127.0.0.1
 ```
 
 Use the current legacy hash routes:
@@ -252,7 +309,7 @@ Important: routes such as `#/workspace/{tripId}` belong to the removed React ver
 
 ## 3. Frontend/backend synchronization
 
-`dist/index.html` must load scripts in this order:
+`frontend/index.html` must load scripts in this order:
 
 1. `api-client.js`
 2. `app.js`
@@ -263,11 +320,11 @@ The missing `api-client.js` and `api-sync.js` references were fixed. Without the
 
 Relevant files:
 
-- `dist/index.html`: static entry point
-- `dist/app.js`: original state and rendering runtime
-- `dist/redesign.js`: approved visual redesign and workspace screens
-- `dist/api-client.js`: REST client for the backend
-- `dist/api-sync.js`: maps server data into the legacy frontend and redirects writes to the API
+- `frontend/index.html`: static entry point
+- `frontend/app.js`: original state and rendering runtime
+- `frontend/redesign.js`: approved visual redesign and workspace screens
+- `frontend/api-client.js`: REST client for the backend
+- `frontend/api-sync.js`: maps server data into the legacy frontend and redirects writes to the API
 - `scripts/serve-static.cjs`: no-cache local static server
 
 The frontend currently uses a read-only browser cache only as an offline fallback. PostgreSQL is authoritative while the API is reachable.
@@ -406,7 +463,7 @@ Typecheck   passed
 Build       passed
 ```
 
-Agent LLM requests retry Gemini HTTP 4xx/5xx responses up to 7 times (8 attempts total) with capped exponential backoff. Each attempt has its own 60-second timeout; the overall agent timeout cancels the active attempt or retry wait. Retry and final provider-failure logs include the HTTP status, attempt count, and bounded provider message. Agent events are persisted as JSONL at the required `AGENT_LOG_FILE` path; local configuration points to `artifacts/logs/backend/agent-runs.jsonl`. Prompt tool history is compacted to at most 12,000 characters, retaining source IDs and relevant price/opening-hour evidence while trimming excerpts and older results as needed. Each model turn logs `promptChars` and tool-result count without logging prompt content.
+Agent LLM requests retry Gemini HTTP 4xx/5xx responses up to 7 times (8 attempts total) with capped exponential backoff. Each attempt has its own 60-second timeout; the overall agent timeout cancels the active attempt or retry wait. Retry and final provider-failure logs include the HTTP status, attempt count, and bounded provider message. Agent events are persisted as JSONL at the required `APP_LOG_FILE` path; local configuration points to `artifacts/logs/backend/application.jsonl`. Prompt tool history is compacted to at most 12,000 characters, retaining source IDs and relevant price/opening-hour evidence while trimming excerpts and older results as needed. Each model turn logs `promptChars` and tool-result count without logging prompt content.
 
 Commands:
 
@@ -485,6 +542,10 @@ The four frontend QA scripts passed after restoring the API script references.
 - 2026-10-29 UI follow-up: internal/external source inputs now switch exclusively (CSS explicitly honors the `hidden` attribute); activity creation shows location before quantity; the day-level Add button uses the primary green style. Removed lock/edit icons from activity cards and made the activity title an accessible edit button. Existing locked items can now be edited/deleted through the card flow since no lock toggle remains visible. Backend typecheck/build and both frontend JavaScript syntax checks passed; test suites not run.
 - 2026-10-29 activity editor layout: moved “Xóa hoạt động” into the form action row, aligned left while Cancel/Save stay on the right. Frontend JavaScript syntax checks pass.
 - 2026-10-29 supplier catalog typography: offer prices in the service catalog use regular font weight; service names remain bold.
+- 2026-10-29 quote status labels: web-source rows always display the single label “Giá web ước tính”, regardless of their internal verification metadata. “Trong báo giá” and “Cần kiểm tra giá” are reserved for internal quote rows. Removed the web verification toggle from the UI and API contract; agent-entered web prices remain unverified by default.
+- 2026-10-29 quote quantity layout: moved each quote unit from the service-name cell into the quantity cell beside its quantity input; adjusted column proportions to fit both cleanly.
+- 2026-10-29 quote unit-price display: show the VND symbol “đ” after the unit-price input; the service pricing unit stays beside quantity.
+- 2026-10-29 quote price-field sizing: reduced the unit-price input width from 116px to 100px.
 
 ## 2026-10-29 agent search/catalog implementation
 - Each web, knowledge, and verified catalog search independently caps results at 5; defaults and schema/provider/service limits agree.
@@ -495,5 +556,56 @@ The four frontend QA scripts passed after restoring the API script references.
 - No Git metadata exists in this workspace; changes remain uncommitted. Qdrant payload reindex is triggered at backend startup; this session did not restart or verify the running backend process.
 - 2026-10-29 agent-tool contract follow-up: removed `limit` from model-visible web, knowledge, and supplier-search schemas/function declarations. Agent sends only query/category; search services read the shared required `AGENT_SEARCH_RESULTS_PER_TOOL` environment setting (local/example value 5). Removed scattered hard caps and old separate web/knowledge limit variables. Tests verify configured counts and query-only tool declarations.
 - 2026-10-29 search-count configuration audit: audited active backend source, generated backend build output, `.env`, `.env.example`, README, spec, and implementation plan. Replaced separate web/knowledge result variables and catalog's independent literal cap with required `AGENT_SEARCH_RESULTS_PER_TOOL`; development and sample config remain 5. Search services own the count, agent calls and model declarations cannot provide it. Removed stale env names from README/config, updated docs and progress. Final backend test suite: 25 files / 147 tests passed; typecheck and build passed.
-- 2026-10-29 broad hard-coded configuration audit: made operational backend values required in `env.ts` and wired Gemma retry/timeout/context/output/research budgets, Qdrant timeout/batch sizing, CORS origins, request body limit, agent rate limit, web/knowledge/catalog result cap, knowledge chunking, and agent runtime timeout through configuration. Removed knowledge service's hidden chunk/search defaults and obsolete web-search cap. Added `dist/runtime-config.js` for frontend API URL/timeouts and made the static server require explicit root, port, and host. Updated QA checks and backend setup documentation. Remaining literals are API/domain contract values (empty optional request-field defaults, pagination defaults/caps, validated field lengths, HTTP/status codes, and unit conversions), not deployment settings.
+- 2026-10-29 broad hard-coded configuration audit: made operational backend values required in `env.ts` and wired Gemma retry/timeout/context/output/research budgets, Qdrant timeout/batch sizing, CORS origins, request body limit, agent rate limit, web/knowledge/catalog result cap, knowledge chunking, and agent runtime timeout through configuration. Removed knowledge service's hidden chunk/search defaults and obsolete web-search cap. Added `frontend/runtime-config.js` for frontend API URL/timeouts and made the static server require explicit root, port, and host. Updated QA checks and backend setup documentation. Remaining literals are API/domain contract values (empty optional request-field defaults, pagination defaults/caps, validated field lengths, HTTP/status codes, and unit conversions), not deployment settings.
 - Verification for this audit: focused backend tests 5 files / 52 tests passed; TypeScript typecheck/build passed; `scripts/qa/qa-api-sync.cjs`, `scripts/qa/qa-dev-mode.cjs`, frontend JS syntax checks passed; local `.env` contains every key in `.env.example`. Full backend suite ran 17 files / 114 passing, while 35 HTTP API tests were blocked because sandbox denied Supertest loopback sockets (`EACCES`). Legacy `scripts/qa/qa-supplier-offers.cjs`, `scripts/qa/qa-trips-dashboard.cjs`, and `scripts/qa/qa-quote-inputs.cjs` also contain assertions for earlier UI copy/layout and still fail against current implementation; they are unrelated to runtime configuration changes.
+- 2026-10-29 quote price-field sizing: reduced the unit-price input width further from 100px to 88px.
+
+## 2026-10-29 agent external price conversion
+- The agent tool accepts one shared `unit`, the exact public source price in that currency's minor unit, and its source `unitPriceCurrency`; it no longer requires the model to provide the trip's quote currency or calculate an exchange rate.
+- Backend converts source prices into the trip budget currency before creating the quote line, including prices selected by `externalSourceId`. It stores the original amount/currency and the conversion provider, rate, and effective date in quote terms. Public prices remain unverified. If a non-identity rate cannot be retrieved, the quote mutation fails with an exchange-rate error rather than storing an invalid amount.
+- Added the configurable Frankfurter rate provider (`FX_RATE_API_URL`, `FX_RATE_TIMEOUT_MS`, `FX_RATE_CACHE_TTL_MS`) and adjusted web price extraction to normalize currencies with fractional minor units. Local backend `.env` was populated with the matching settings.
+- Source: Frankfurter API covers VND and publishes dated reference rates [currency coverage](https://frankfurter.dev/currencies/vnd/) [API docs](https://frankfurter.dev/).
+- 2026-10-29 project launch scripts: added `scripts/start/ubuntu.sh`, `scripts/start/windows.ps1`, and `scripts/start/windows.bat` to keep start tooling out of the project root. They start PostgreSQL/Qdrant, wait for healthy containers, create `.env` from the example if missing, install backend dependencies when absent, generate Prisma, apply migrations, then start API and frontend. Documented both launch options and URLs in backend README.
+- 2026-10-29 startup verification: launched via `scripts/start/windows.ps1`; PostgreSQL/Qdrant are running, Prisma client generated, no pending migrations, frontend returned HTTP 200 and backend health returned `ok` at port 3101.
+- 2026-10-29 live agent smoke test: reran the existing 2-day Seoul trip (`0f8ff53a-cbeb-4bec-a0e0-f93ae8aa6c52`). Agent completed successfully in 7 model turns / 10 tool calls (484.9s), saved 2 activities (Gyeongbokgung on day 1; Bukchon Hanok on day 2), and returned 3 sources. Web calls each returned 5 results. Gemini returned transient HTTP 500s on later turns and recovered through retry. Largest logged full prompt was 16,273 characters, down from the previous 135,940-character prompt. Completion fallback was not invoked because the model completed the itinerary itself.
+
+## 2026-10-29 agent search context limit
+- Reduced AGENT_SEARCH_RESULTS_PER_TOOL from 5 to 3 in local and example backend configuration. Web, internal knowledge, and verified service catalog tools each return at most three results per invocation; the model still cannot choose this count.
+- The running backend reads this setting at startup, so restart the backend for the new limit to take effect in an active session.
+
+## 2026-10-29 agent price-first itinerary prompt
+- Replaced repetitive and contradictory itinerary prompt rules with a shorter workflow that strongly prefers a source-backed price and asks the agent to search again when the first results lack one.
+- Removed keyword/query-count gates that tried to infer whether the agent had searched enough or whether a result matched an activity. Any add without a price now returns `PRICE_RESEARCH_CONFIRMATION_REQUIRED` with an activity-bound confirmation ID; the agent decides from its search/history whether to research further, attach a found price, or retry with that ID and an honest no-price reason. Exact source URLs and offer IDs still must come from the corresponding search tool.
+- When the main research budget is exhausted, the completion fallback makes no new searches but reuses a source from its history when available; otherwise it records an honest unpriced reason.
+- Verification: backend typecheck/build passed; automated tests were not run.
+
+## 2026-10-29 service catalog row editing
+- Removed the service catalog action column and per-row edit/delete icons. Clicking the service name opens one editor for service name, unit, category, the single supplier offer price, verification state, and details.
+- Moved service deactivation into the editor and replaced the browser confirmation with an app-owned confirmation that explains historical prices and quote links are retained.
+- Updated supplier table column sizing and the UX contract. Verification: JavaScript syntax and whitespace checks; test suites not run.
+
+- 2026-10-29 service catalog spacing follow-up: narrowed the trailing category column from 16% to 10% and gave the reclaimed width to details, removing the unused right-side space.
+
+## 2026-10-29 agent prompt tool-result projection
+- Added a prompt-only projection for web, knowledge, and supplier search results plus successful mutation acknowledgements. It removes duplicate/internal identifiers and timestamps, normalizes web URL/source fields, and retains the full excerpt and substantive source content without an excerpt-specific cap. Backend agent state keeps the original result objects for source/offer validation. The same projection is used for normal turns and completion-fallback history.
+- Verification: backend TypeScript typecheck passed; test suites not run.
+
+- 2026-10-29 correction to web prompt payload: removed backend-parsed price/currency, audience, pricing unit, opening-hours/evidence enrichments from model-visible search results. Web result keeps the original excerpt unchanged with title, URL, publisher, and required source-link/eligibility metadata; full original state remains for backend operations.
+- 2026-10-29 removed backend suitability/confidence decisions from the agent-facing web results and source-selection gates. External sources are no longer hidden or rejected based on opening-hours availability, weather inference, source-domain heuristics, stale age, or a numeric confidence threshold. Removed the unused external-source `REJECTED` status; the migration maps any legacy rows to `UNVERIFIED` so source records are retained.
+
+## 2026-10-30: Google Places venues and day itinerary map
+
+- Added optional backend Google Places (New) provider, trip scoped search route, expiring candidate store, bounded per-IP rate limit, and per-day map hydration. The itinerary stores only `googlePlaceId` alongside authored activity data; map coordinates/name/address are fetched transiently when the map opens.
+- Agent tool declarations now include `search_places`; both activity-add paths require an exact same-run place candidate and `selectionReason` when Places is configured. External price sources no longer implicitly define the itinerary venue. Completion fallback cannot search or invent a candidate.
+- Added the manual place picker with stale request cancellation, branch address disambiguation, candidate invalidation on typing, and optional selection reason. Added a compact trip cover and per-day map with grouped colocated pins, safe text-only reason popups, and timeline fallback.
+- Added nullable `google_place_id` via additive migration `20261030012312_itinerary_google_place_id`; local database migration was applied earlier in this implementation without resetting existing rows.
+- Google keys are intentionally not present in the repository. Configure `GOOGLE_PLACES_API_KEY` in backend environment and restricted `googleMapsBrowserApiKey` plus `googleMapsMapId` in `frontend/runtime-config.js` to enable live search/maps. Terms/privacy links, billing/quota restrictions, and key restrictions remain release setup.
+- Verification: backend typecheck/build and Prisma schema validation passed; focused unit and QA results are recorded in the current task ledger. No live Google request was made.
+
+## 2026-10-30 OSM provider switch
+
+- Replaced Google Maps/Places with Leaflet, OpenStreetMap tiles, and Photon search. No Google key, Map ID, or Google billing configuration is required.
+- Planning and agent contracts use provider-neutral `placeId`; chosen OSM metadata (provider, ID, display name, address, coordinates) is stored on itinerary items so each day map can show pins and `selectionReason` popups without another search.
+- Added an additive migration that preserves existing Google Place IDs as `GOOGLE_LEGACY`; legacy activities remain visible but need an OSM result selected to appear as map markers.
+- Photon demo and OSM tiles are best-effort community services. Search is serialized/cached; production scale should use an OSM-compatible hosted provider or self-hosted service.
+- Verification is pending Prisma regeneration/schema validation, backend build/typecheck, and frontend syntax checks. Database migration and live map request are pending restart via `script/start`.

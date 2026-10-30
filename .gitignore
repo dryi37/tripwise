@@ -30,4 +30,4 @@
 .DS_Store
 Thumbs.db
 
-# Root dist is the active static frontend and is intentionally tracked.
+# frontend/ contains the active static frontend and is intentionally tracked.

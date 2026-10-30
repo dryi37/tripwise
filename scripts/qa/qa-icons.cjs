@@ -1,8 +1,8 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const js = fs.readFileSync('dist/redesign.js', 'utf8');
-const css = fs.readFileSync('dist/redesign.css', 'utf8');
+const js = fs.readFileSync('frontend/redesign.js', 'utf8');
+const css = fs.readFileSync('frontend/redesign.css', 'utf8');
 
 assert.match(js, /const svgIcons=\{/,
   'Icons should use an SVG markup registry so multi-part icons render correctly');

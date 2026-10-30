@@ -34,7 +34,6 @@ enum QuoteItemSourceType {
 enum ExternalVerificationStatus {
   UNVERIFIED
   VERIFIED
-  REJECTED
 }
 
 enum QuoteItemPriceStatus {
@@ -114,11 +113,17 @@ model ItineraryItem {
   draftId          String          @map("draft_id") @db.Uuid
   dayIndex         Int             @map("day_index")
   title            String          @db.VarChar(160)
-  location         String          @db.VarChar(200)
   localStartTime   String          @map("local_start_time") @db.VarChar(5)
   localEndTime     String          @map("local_end_time") @db.VarChar(5)
   timezone         String          @db.VarChar(80)
   description      String          @db.Text
+  selectionReason  String?         @map("selection_reason") @db.Text
+  placeProvider    String?         @map("place_provider") @db.VarChar(32)
+  placeId          String?         @map("place_id") @db.VarChar(255)
+  placeName        String?         @map("place_name") @db.Text
+  placeAddress     String?         @map("place_address") @db.Text
+  placeLatitude    Float?          @map("place_latitude")
+  placeLongitude   Float?          @map("place_longitude")
   sourceUrl        String?         @map("source_url") @db.Text
   isLocked         Boolean         @default(false) @map("is_locked")
   externalSourceId String?         @map("external_source_id") @db.Uuid

@@ -12,16 +12,16 @@ describe("WebSearchService", () => {
   it("returns every web result to the agent even when price normalization cannot create a saved source", async () => {
     const service = new WebSearchService(provider([
       { resultKey: "no-price", name: "Bukchon", title: "Visit Bukchon", url: "https://visitkorea.example/bukchon", publisher: "Visit Korea", excerpt: "A residential neighborhood with traditional houses." },
-      { resultKey: "no-price-raw", name: "Bukchon details", title: "Visitor guidance", url: "https://visitkorea.example/guide", publisher: "Visit Korea", excerpt: "A short excerpt.", rawContent: "Full official content with access, etiquette, and opening details." },
+      { resultKey: "no-price-content", name: "Bukchon details", title: "Visitor guidance", url: "https://visitkorea.example/guide", publisher: "Visit Korea", excerpt: "Full official content with access, etiquette, and opening details." },
       { resultKey: "multi-price", name: "Gyeongbokgung", title: "Palace tickets", url: "https://palace.example/tickets", publisher: "Palace", excerpt: "Adults KRW 3,000; children KRW 1,500", amount: 3000, currency: "KRW" },
     ]), { now: () => new Date("2026-10-29T00:00:00Z"), maxResults: 5, staleAfterDays: 180 });
 
     const response = await service.searchForAgent({ query: "Seoul attractions", ...trip });
 
     expect(response.results).toHaveLength(3);
-    expect(response.results.map(({ resultKey }) => resultKey)).toEqual(["no-price", "no-price-raw", "multi-price"]);
+    expect(response.results.map(({ resultKey }) => resultKey)).toEqual(["no-price", "no-price-content", "multi-price"]);
     expect(response.results[0]?.excerpt).toContain("residential neighborhood");
-    expect(response.results[1]?.rawContent).toContain("Full official content");
+    expect(response.results[1]?.excerpt).toContain("Full official content");
     expect(response.priceCandidates).toEqual([]);
   });
 

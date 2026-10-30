@@ -4,7 +4,7 @@
 
 **Goal:** Let a consultant create a manual service directly from the unified quote table, optionally saving an unverified copy to the supplier catalog.
 
-**Architecture:** Extend the existing app-owned modal and delegated event system in `dist/redesign.js`. Save the quote row and optional catalog record in one browser-local transaction with rollback on persistence failure; reuse existing quote, supplier-offer, validation, toast and money-formatting conventions.
+**Architecture:** Extend the existing app-owned modal and delegated event system in `frontend/redesign.js`. Save the quote row and optional catalog record in one browser-local transaction with rollback on persistence failure; reuse existing quote, supplier-offer, validation, toast and money-formatting conventions.
 
 **Tech Stack:** Vanilla JavaScript, static HTML/CSS, browser-local storage, Node.js QA scripts.
 
@@ -46,8 +46,8 @@
 ### Task 2: Implement manual service creation
 
 **Files:**
-- Modify: `dist/redesign.js`
-- Modify: `dist/redesign.css`
+- Modify: `frontend/redesign.js`
+- Modify: `frontend/redesign.css`
 
 **Interfaces:**
 - Consumes: `openModal`, `closeModal`, `save`, `render`, `toast`, `uid`, `trip`, `state.rates`.

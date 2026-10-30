@@ -44,13 +44,13 @@
 
 **Interfaces:**
 - The model tool schemas accept query/category only; result counts are not model inputs.
-- Required environment configuration `AGENT_SEARCH_RESULTS_PER_TOOL` is shared by web, knowledge, and catalog search services. Dev/example configuration is 5.
+- Required environment configuration `AGENT_SEARCH_RESULTS_PER_TOOL` is shared by web, knowledge, and catalog search services. Dev/example configuration is 3.
 - Backend services use their configured result count and expose no caller-controlled override from the agent tool.
 
 - [x] Add tests that the model cannot supply a result count and services follow configured result counts.
 - [x] Run the focused tests and confirm they fail against current behavior.
 - [x] Implement query-only model schemas and inject the shared configured count into knowledge, web, and catalog search.
-- [x] Require `AGENT_SEARCH_RESULTS_PER_TOOL` from the environment; set its sample/local value to five.
+- [x] Require `AGENT_SEARCH_RESULTS_PER_TOOL` from the environment; set its sample/local value to three.
 - [x] Run focused tests and typecheck.
 
 ### Task 2: Enforce one optional offer per service in the database and backend
@@ -97,7 +97,7 @@
 
 **Files:**
 - Modify as needed: `backend/src/modules/agent/infrastructure/gemma-agent.model.ts`
-- Modify as needed: `dist/api-sync.js`, `dist/redesign.js`
+- Modify as needed: `frontend/api-sync.js`, `frontend/redesign.js`
 - Test: agent context/schema tests and `node` QA scripts for catalog UI/API sync
 
 - [x] Verify agent prompt and tool declarations describe only one verified internal price per service; tool counts come from backend configuration.

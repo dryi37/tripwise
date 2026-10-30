@@ -7,7 +7,7 @@ Audit active backend and static frontend code for deployment-specific and operat
 ## Architecture Decisions
 
 - Backend operational settings are required in `backend/.env`; `.env.example` documents local values. The app will not silently fall back to code defaults.
-- Browser-only settings live in a separate `dist/runtime-config.js`, loaded before the API client.
+- Browser-only settings live in a separate `frontend/runtime-config.js`, loaded before the API client.
 - Environment and runtime configuration are injected into services at composition boundaries.
 
 ## Task List
@@ -21,7 +21,7 @@ Audit active backend and static frontend code for deployment-specific and operat
 - [ ] Focused environment, model, Qdrant, and API tests pass.
 
 ### Phase 2: Frontend runtime settings
-- [x] Move API URL and request/agent timeouts to `dist/runtime-config.js`; remove stale knowledge-search default limit.
+- [x] Move API URL and request/agent timeouts to `frontend/runtime-config.js`; remove stale knowledge-search default limit.
 - [x] Remove implicit static-server port default; require its port and host as arguments.
 - [x] Update targeted frontend QA coverage for runtime configuration and API wiring.
 

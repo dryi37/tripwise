@@ -10,6 +10,10 @@ export type AgentDecision =
   | { type: "tool_calls"; calls: AgentToolCall[] }
   | { type: "final"; text: string };
 
+export type AgentHistoryEntry =
+  | { kind: "model"; turn: number; decision: AgentDecision }
+  | { kind: "tool"; turn: number; tool: string; result: unknown; query?: string };
+
 export interface AgentModelInput {
   instruction: string;
   trip: Trip;
@@ -17,6 +21,8 @@ export interface AgentModelInput {
   turn: number;
   budget?: { tripDays: number; modelTurnLimit: number; toolCallLimit: number; toolsExecuted: number };
   toolResults?: Array<{ tool: string; result: unknown; query?: string }>;
+  history?: AgentHistoryEntry[];
+  completionFallback?: { missingDayIndices: number[]; modelCallsRemaining: number; toolCallsRemaining: number };
 }
 
 export interface AgentModelCallOptions {

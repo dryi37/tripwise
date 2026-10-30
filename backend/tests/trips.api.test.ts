@@ -28,7 +28,7 @@ function testApp() {
   });
   return createTestApp({
     tripService: service,
-    planningService: new PlanningService(repository, new InMemoryPlanningRepository()),
+    planningService: new PlanningService(repository, new InMemoryPlanningRepository(), undefined, undefined, undefined, "Asia/Ho_Chi_Minh"),
   });
 }
 

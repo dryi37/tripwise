@@ -1,4 +1,5 @@
 import { ApiError } from "../../../shared/http/api-error.js";
+import { appLogger } from "../../../shared/observability/agent-logger.js";
 import type { WebSearchProvider } from "../web-search.provider.js";
 import type { RawWebSearchResult, Weekday, WebSearchInput } from "../web-search.types.js";
 
@@ -25,11 +26,15 @@ export class TavilyWebSearchProvider implements WebSearchProvider {
 
   async search(input: WebSearchInput): Promise<RawWebSearchResult[]> {
     if (!this.apiKey) throw new ApiError(503, "WEB_SEARCH_NOT_CONFIGURED", "Set TAVILY_API_KEY to use web search");
+    const startedAt = Date.now();
+    let status: number | undefined;
+    appLogger.info({ event: "provider.request.started", provider: "tavily", operation: "web_search", queryLength: input.query.length, resultLimit: input.limit });
     try {
-      const response = await fetch("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ api_key: this.apiKey, query: `${input.query} ${input.destination}`, max_results: input.limit, search_depth: "advanced", include_raw_content: true }), signal: AbortSignal.timeout(this.timeoutMs) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const body = await response.json() as { results?: Array<{ url?: string; title?: string; content?: string; raw_content?: string }> };
-      return (body.results ?? []).map((result, index) => {
+      const response = await fetch("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ api_key: this.apiKey, query: `${input.query} ${input.destination}`, max_results: input.limit, search_depth: "advanced" }), signal: AbortSignal.timeout(this.timeoutMs) });
+      status = response.status;
+      if (!response.ok) throw new Error("Web search provider returned a non-success status");
+      const body = await response.json() as { results?: Array<{ url?: string; title?: string; content?: string }> };
+      const results = (body.results ?? []).map((result, index) => {
         const url = result.url ?? "";
         const title = result.title ?? "";
         const text = (result.content ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -41,7 +46,11 @@ export class TavilyWebSearchProvider implements WebSearchProvider {
           const normalized = currency === "VND" || currency === "KRW" || currency === "JPY"
             ? raw.replace(/[.,]/g, "")
             : raw.replace(/,(?=\d{3}(?:\D|$))/g, "").replace(/\.(?=\d{3}(?:\D|$))/g, "");
-          return { currency, amount: Number(normalized) };
+          const amount = Number(normalized);
+          let minorUnitFactor = 1;
+          try { minorUnitFactor = 10 ** (new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits ?? 0); }
+          catch { return { currency, amount: Number.NaN }; }
+          return { currency, amount: Math.round(amount * minorUnitFactor) };
         });
         const uniquePrices = new Map(parsed.map((price) => [`${price.currency}:${price.amount}`, price]));
         const hours = extractHours(text);
@@ -61,7 +70,6 @@ export class TavilyWebSearchProvider implements WebSearchProvider {
           url,
           publisher: hostname,
           excerpt: text,
-          ...(result.raw_content ? { rawContent: result.raw_content } : {}),
           ...(hasParsedPrice ? {
             amount: price!.amount,
             currency: price!.currency,
@@ -75,7 +83,10 @@ export class TavilyWebSearchProvider implements WebSearchProvider {
           ...(hours ? hours : {}),
         };
       });
+      appLogger.info({ event: "provider.request.completed", provider: "tavily", operation: "web_search", status, resultCount: results.length, durationMs: Date.now() - startedAt });
+      return results;
     } catch (error) {
+      appLogger.warn({ event: "provider.request.failed", provider: "tavily", operation: "web_search", ...(status === undefined ? {} : { status }), durationMs: Date.now() - startedAt, errorName: error instanceof Error ? error.name : "UNKNOWN_ERROR" });
       if (error instanceof ApiError) throw error;
       throw new ApiError(503, "WEB_SEARCH_UNAVAILABLE", "Web search is temporarily unavailable");
     }

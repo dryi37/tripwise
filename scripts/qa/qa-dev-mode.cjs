@@ -1,10 +1,10 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const app = fs.readFileSync('dist/app.js', 'utf8');
-const sync = fs.readFileSync('dist/api-sync.js', 'utf8');
-const redesign = fs.readFileSync('dist/redesign.js', 'utf8');
-const html = fs.readFileSync('dist/index.html', 'utf8');
+const app = fs.readFileSync('frontend/app.js', 'utf8');
+const sync = fs.readFileSync('frontend/api-sync.js', 'utf8');
+const redesign = fs.readFileSync('frontend/redesign.js', 'utf8');
+const html = fs.readFileSync('frontend/index.html', 'utf8');
 
 assert.ok(/function fresh\(\)\{return \{[\s\S]*?trips:\[\]/.test(app), 'A fresh development session must not contain seeded browser trips');
 assert.ok(/function fresh\(\)\{return \{[\s\S]*?rates:\[\][\s\S]*?docs:\[\]/.test(app), 'A fresh development session must not contain fake catalog or knowledge rows');

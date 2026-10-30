@@ -76,7 +76,7 @@
 ### Task 4: Knowledge frontend
 
 **Files:**
-- Modify: `dist/redesign.js`, `dist/redesign.css`, `dist/api-client.js`
+- Modify: `frontend/redesign.js`, `frontend/redesign.css`, `frontend/api-client.js`
 - Create: `scripts/qa/qa-knowledge.cjs`
 
 **Interfaces:**

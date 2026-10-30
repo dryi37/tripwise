@@ -5,10 +5,12 @@ import { fileURLToPath } from "node:url";
 export type AgentLogFields = Record<string, unknown> & { event: string };
 export type AgentLogLevel = "info" | "warn" | "error";
 
-export const AGENT_LOG_FILE = process.env.AGENT_LOG_FILE ? resolve(process.env.AGENT_LOG_FILE) : undefined;
+export const APP_LOG_FILE = process.env.APP_LOG_FILE
+  ? resolve(process.env.APP_LOG_FILE)
+  : undefined;
 
 export class AgentLogger {
-  constructor(private readonly filePath = AGENT_LOG_FILE) {}
+  constructor(private readonly filePath = APP_LOG_FILE) {}
 
   info(fields: AgentLogFields): void { this.write("info", fields); }
   warn(fields: AgentLogFields): void { this.write("warn", fields); }
@@ -32,4 +34,6 @@ export class AgentLogger {
   }
 }
 
-export const agentLogger = new AgentLogger();
+export const appLogger = new AgentLogger();
+// Preserve existing agent instrumentation imports while the same sink records all application events.
+export const agentLogger = appLogger;

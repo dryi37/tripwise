@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { ApiError } from "../../shared/http/api-error.js";
 import type { CatalogService } from "../catalog/catalog.service.js";
 import type { ExternalSourceService } from "../external-sources/external-source.service.js";
+import { convertMinorAmount, type ExchangeRateProvider } from "../currency/exchange-rate.provider.js";
+import type { PlacesService } from "../places/places.service.js";
 import type { TripRepository } from "../trips/trip.repository.js";
 import type { PlanningRepository } from "./planning.repository.js";
 import type {
@@ -70,7 +72,17 @@ export class PlanningService {
     private readonly dependencies: Dependencies = defaults,
     private readonly catalog?: CatalogService,
     private readonly externalSources?: ExternalSourceService,
+    private readonly timezone?: string,
+    private readonly exchangeRates?: ExchangeRateProvider,
+    private readonly places?: PlacesService,
   ) {}
+
+  private selectedPlace(tripId: string, placeId: string | undefined, runId?: string): Pick<ItineraryItemChanges, "placeProvider" | "placeId" | "placeName" | "placeAddress" | "placeLatitude" | "placeLongitude"> {
+    if (!this.places) throw new ApiError(503, "PLACES_NOT_CONFIGURED", "OpenStreetMap search is unavailable");
+    if (!placeId) throw new ApiError(422, "PLACE_REQUIRED", "Choose a specific place before adding this activity");
+    const place = this.places.resolvePlaceId(placeId, { tripId, ...(runId ? { runId } : {}) });
+    return { placeProvider: place.placeProvider, placeId: place.placeId, placeName: place.displayName, placeAddress: place.formattedAddress, placeLatitude: place.latitude, placeLongitude: place.longitude };
+  }
 
   private async trip(tripId: string) {
     const trip = await this.trips.findById(tripId);
@@ -78,14 +90,23 @@ export class PlanningService {
     return trip;
   }
 
+  private activityTimezone(): string {
+    if (!this.timezone) throw new ApiError(500, "APP_TIMEZONE_NOT_CONFIGURED", "The application timezone is not configured");
+    try { new Intl.DateTimeFormat("en", { timeZone: this.timezone }); }
+    catch { throw new ApiError(500, "APP_TIMEZONE_INVALID", "The configured application timezone is invalid"); }
+    return this.timezone;
+  }
+
   async getDraft(tripId: string): Promise<ItineraryDraft> {
     await this.trip(tripId);
     return this.repository.getOrCreateDraft(tripId, this.dependencies.createId(), this.dependencies.now());
   }
 
-  async addItineraryItem(tripId: string, input: NewItineraryItem & { expectedRevision: number }): Promise<ItineraryDraft> {
+  async addItineraryItem(tripId: string, input: Omit<NewItineraryItem, "timezone"> & { expectedRevision: number; placeRunId?: string }): Promise<ItineraryDraft> {
     const trip = await this.trip(tripId);
-    const { expectedRevision, ...data } = input;
+    const { expectedRevision, placeRunId, placeId: requestedPlaceId, ...activity } = input;
+    const selectedPlace = this.selectedPlace(tripId, requestedPlaceId ?? undefined, placeRunId);
+    const data: NewItineraryItem = { ...activity, ...selectedPlace, timezone: this.activityTimezone() };
     validateActivity(data, dayCount(trip.startDate, trip.endDate));
     const draft = await this.repository.getOrCreateDraft(tripId, this.dependencies.createId(), this.dependencies.now());
     if (draft.revision !== expectedRevision) throw new ApiError(409, "REVISION_CONFLICT", "Draft has changed", { currentRevision: draft.revision });
@@ -93,7 +114,7 @@ export class PlanningService {
     return unwrap(await this.repository.addItineraryItem(tripId, expectedRevision, { ...data, id: this.dependencies.createId(), isLocked: false }, this.dependencies.now()), "Draft");
   }
 
-  async addConsultantItineraryItem(tripId: string, input: Omit<NewItineraryItem, "supplierOfferId" | "externalSourceId"> & { expectedRevision: number; quantity: number; unit?: string | undefined; unitPriceMinor?: number | undefined; supplierOfferId?: string | undefined; externalSourceId?: string | undefined; unpricedReason?: string | undefined }): Promise<{ draft: ItineraryDraft; quote: Quote }> {
+  async addConsultantItineraryItem(tripId: string, input: Omit<NewItineraryItem, "timezone" | "supplierOfferId" | "externalSourceId"> & { expectedRevision: number; quantity: number; unit?: string | undefined; unitPriceMinor?: number | undefined; unitPriceCurrency?: string | undefined; supplierOfferId?: string | undefined; externalSourceId?: string | undefined; unpricedReason?: string | undefined; placeRunId?: string | undefined }): Promise<{ draft: ItineraryDraft; quote: Quote }> {
     if ((input.supplierOfferId ? 1 : 0) + (input.externalSourceId ? 1 : 0) + (input.sourceUrl ? 1 : 0) > 1) throw new ApiError(422, "MULTIPLE_PRICE_SOURCES", "Choose one price source for an activity");
     if (input.externalSourceId) {
       return this.addPlaceFromExternalSource(tripId, {
@@ -101,15 +122,19 @@ export class PlanningService {
         dayIndex: input.dayIndex,
         localStartTime: input.localStartTime,
         localEndTime: input.localEndTime,
-        timezone: input.timezone,
         quantity: input.quantity,
+        ...(input.placeId ? { placeId: input.placeId } : {}),
+        ...(input.placeRunId ? { placeRunId: input.placeRunId } : {}),
+        title: input.title,
+        description: input.description,
+        ...(input.selectionReason ? { selectionReason: input.selectionReason } : {}),
         ...(input.unitPriceMinor === undefined ? {} : { unitPriceMinor: input.unitPriceMinor }),
         expectedDraftRevision: input.expectedRevision,
       });
     }
 
     const trip = await this.trip(tripId);
-    const { expectedRevision, quantity, unit: quoteUnit, unitPriceMinor, supplierOfferId, sourceUrl, externalSourceId: _externalSourceId, unpricedReason, ...activity } = input;
+    const { expectedRevision, quantity, unit: quoteUnit, unitPriceMinor, unitPriceCurrency, supplierOfferId, sourceUrl, externalSourceId: _externalSourceId, unpricedReason, placeId, placeRunId, ...activity } = input;
     validateActivity(activity, dayCount(trip.startDate, trip.endDate));
     let offer: Awaited<ReturnType<CatalogService["getOfferForQuote"]>> | undefined;
     const plannedDate = new Date(`${trip.startDate}T00:00:00Z`);
@@ -125,7 +150,10 @@ export class PlanningService {
     }
 
     const externalSource = sourceUrl && this.externalSources
-      ? (await this.externalSources.list(tripId)).find((source) => source.canonicalUrl === sourceUrl && source.suitable && source.confidence >= 0.7)
+      ? (await this.externalSources.list(tripId)).find((source) => source.canonicalUrl === sourceUrl)
+      : undefined;
+    const externalPrice = sourceUrl && unitPriceMinor !== undefined
+      ? await this.convertExternalPrice(unitPriceMinor, unitPriceCurrency ?? trip.budgetCurrency, trip.budgetCurrency)
       : undefined;
 
     const draftBefore = await this.getDraft(tripId);
@@ -135,6 +163,8 @@ export class PlanningService {
       ...(supplierOfferId ? { supplierOfferId } : {}),
       ...(sourceUrl ? { sourceUrl } : {}),
       ...(externalSource ? { externalSourceId: externalSource.id } : {}),
+      placeId,
+      ...(placeRunId ? { placeRunId } : {}),
       expectedRevision,
     });
     const createdActivity = draft.items.find((item) => !draftBefore.items.some((previous) => previous.id === item.id));
@@ -142,7 +172,7 @@ export class PlanningService {
     const quote = offer
       ? await this.addQuoteItemFromOffer(tripId, { supplierOfferId: offer.id, quantity, expectedRevision: (await this.getQuote(tripId)).revision, itineraryItemId: createdActivity.id, plannedDate: plannedDateText, ...(unitPriceMinor === undefined ? {} : { unitPriceMinor }) })
       : sourceUrl && unitPriceMinor !== undefined
-        ? await this.addQuoteItem(tripId, { expectedRevision: (await this.getQuote(tripId)).revision, itineraryItemId: createdActivity.id, ...(externalSource ? { externalSourceId: externalSource.id } : {}), name: activity.title, category: "ACTIVITY", unit: quoteUnit ?? "visit", quantity, unitPriceMinor, sourceType: "EXTERNAL", sourceStatus: externalSource?.verificationStatus === "VERIFIED" ? "VERIFIED" : "UNVERIFIED", priceStatus: "MANUAL", serviceNameSnapshot: activity.title, sourceUnitPriceMinor: externalSource?.originalAmountMinor ?? unitPriceMinor, termsSnapshot: externalSource ? `${externalSource.title}\n${externalSource.excerpt}` : "Giá bên ngoài do tư vấn viên nhập; cần xác minh.", sourceUrlSnapshot: sourceUrl, validUntilSnapshot: null })
+        ? await this.addQuoteItem(tripId, { expectedRevision: (await this.getQuote(tripId)).revision, itineraryItemId: createdActivity.id, ...(externalSource ? { externalSourceId: externalSource.id } : {}), name: activity.title, category: "ACTIVITY", unit: quoteUnit ?? "visit", quantity, unitPriceMinor: externalPrice!.amountMinor, sourceType: "EXTERNAL", sourceStatus: "UNVERIFIED", priceStatus: "SOURCE", serviceNameSnapshot: activity.title, sourceUnitPriceMinor: unitPriceMinor, termsSnapshot: `${externalSource ? `${externalSource.title}\n${externalSource.excerpt}\n` : ""}${externalPrice!.terms}`, sourceUrlSnapshot: sourceUrl, validUntilSnapshot: null })
         : sourceUrl
           ? await this.addQuoteItemNeedingReview(tripId, { itineraryItemId: createdActivity.id, name: activity.title, quantity, unit: quoteUnit ?? "visit", category: "ACTIVITY", sourceType: "EXTERNAL", ...(externalSource ? { externalSourceId: externalSource.id, sourceStatus: externalSource.verificationStatus === "VERIFIED" ? "VERIFIED" : "UNVERIFIED" } : {}), sourceUrlSnapshot: sourceUrl, reason: input.unpricedReason ?? "Chưa nhập được giá từ nguồn bên ngoài; cần kiểm tra giá." })
       : unitPriceMinor !== undefined
@@ -151,13 +181,29 @@ export class PlanningService {
     return { draft, quote };
   }
 
-  async updateItineraryItem(tripId: string, itemId: string, input: ItineraryItemChanges & { expectedRevision: number }): Promise<ItineraryDraft> {
+  private async convertExternalPrice(amountMinor: number, sourceCurrency: string, quoteCurrency: string): Promise<{ amountMinor: number; terms: string }> {
+    const base = sourceCurrency.toUpperCase();
+    const quote = quoteCurrency.toUpperCase();
+    if (base === quote) return { amountMinor, terms: `Giá nguồn: ${amountMinor} ${base}; báo giá: ${quote}. Giá web ước tính, chưa xác minh.` };
+    if (!this.exchangeRates) throw new ApiError(503, "EXCHANGE_RATE_NOT_CONFIGURED", "Exchange-rate conversion is not configured");
+    const rate = await this.exchangeRates.getRate(base, quote);
+    const convertedAmountMinor = convertMinorAmount(amountMinor, base, quote, rate.rate);
+    return {
+      amountMinor: convertedAmountMinor,
+      terms: `Giá gốc: ${amountMinor} đơn vị nhỏ nhất ${base}; tỷ giá ${rate.base}/${rate.quote}: ${rate.rate} (ngày ${rate.date}, nguồn ${rate.provider}); giá quy đổi: ${convertedAmountMinor} đơn vị nhỏ nhất ${quote}. Giá web ước tính, chưa xác minh.`,
+    };
+  }
+
+  async updateItineraryItem(tripId: string, itemId: string, input: Omit<ItineraryItemChanges, "timezone"> & { expectedRevision: number }): Promise<ItineraryDraft> {
     const trip = await this.trip(tripId);
-    const { expectedRevision, ...changes } = input;
+    const { expectedRevision, placeId, ...submittedChanges } = input;
+    const changes: ItineraryItemChanges = { ...submittedChanges, timezone: this.activityTimezone() };
     const draft = await this.repository.getOrCreateDraft(tripId, this.dependencies.createId(), this.dependencies.now());
     if (draft.revision !== expectedRevision) throw new ApiError(409, "REVISION_CONFLICT", "Draft has changed", { currentRevision: draft.revision });
     const current = draft.items.find((item) => item.id === itemId);
     if (!current) throw new ApiError(404, "PLANNING_RESOURCE_NOT_FOUND", "Draft or item not found");
+    if (!current.placeId && !placeId) throw new ApiError(422, "PLACE_REQUIRED", "Choose a specific place for this activity before updating it");
+    if (placeId) Object.assign(changes, this.selectedPlace(tripId, placeId), { selectionReason: input.selectionReason ?? null });
     if (current.isLocked && changes.isLocked !== false) throw new ApiError(409, "ITEM_LOCKED", "Unlock the activity before updating it");
     const updated = { ...current, ...changes };
     validateActivity(updated, dayCount(trip.startDate, trip.endDate));
@@ -245,11 +291,11 @@ export class PlanningService {
     return this.addQuoteItem(tripId, { expectedRevision: input.expectedRevision, ...(input.itineraryItemId ? { itineraryItemId: input.itineraryItemId } : {}), serviceId: offer.serviceId, supplierOfferId: offer.id, name: offer.service.name, category: offer.service.category, unit: offer.service.unit, quantity: input.quantity, unitPriceMinor, sourceType: "CATALOG", sourceStatus: offer.status, priceStatus: unitPriceMinor === offer.unitPriceMinor ? "SOURCE" : "PRICE_OVERRIDDEN", serviceNameSnapshot: offer.service.name, sourceUnitPriceMinor: offer.unitPriceMinor, termsSnapshot: offer.details, validUntilSnapshot: offer.validUntil });
   }
 
-  async addPlaceFromExternalSource(tripId: string, input: { externalSourceId: string; dayIndex: number; localStartTime: string; localEndTime: string; timezone: string; quantity: number; unitPriceMinor?: number; expectedDraftRevision?: number }): Promise<{ draft: ItineraryDraft; quote: Quote }> {
+  async addPlaceFromExternalSource(tripId: string, input: { externalSourceId: string; dayIndex: number; localStartTime: string; localEndTime: string; quantity: number; selectionReason?: string | undefined; unitPriceMinor?: number; expectedDraftRevision?: number; placeId?: string; placeRunId?: string; title?: string; description?: string }): Promise<{ draft: ItineraryDraft; quote: Quote }> {
     if (!this.externalSources) throw new ApiError(503, "WEB_SEARCH_NOT_CONFIGURED", "External sources are not configured");
     const trip = await this.trip(tripId);
     const source = await this.externalSources.getForTrip(tripId, input.externalSourceId);
-    if (!source.suitable || source.verificationStatus === "REJECTED" || source.confidence < 0.7) throw new ApiError(422, "EXTERNAL_SOURCE_NOT_SELECTABLE", "External source lacks reliable place, price, or trip-date evidence");
+    if (!source.suitable) throw new ApiError(422, "EXTERNAL_SOURCE_NOT_SELECTABLE", "External source is not suitable for this trip");
     const plannedDate = new Date(`${trip.startDate}T00:00:00Z`);
     plannedDate.setUTCDate(plannedDate.getUTCDate() + input.dayIndex - 1);
     const plannedDateText = plannedDate.toISOString().slice(0, 10);
@@ -264,20 +310,22 @@ export class PlanningService {
         throw new ApiError(422, "EXTERNAL_SOURCE_OUTSIDE_OPENING_HOURS", "Planned visit is outside the verified opening hours");
       }
     }
-    if (source.originalCurrency !== trip.budgetCurrency) throw new ApiError(422, "EXTERNAL_CURRENCY_CONVERSION_REQUIRED", "External price requires an explicit currency conversion before selection");
     const audience = source.audience.toLowerCase();
     if (audience === "foreign") throw new ApiError(422, "EXTERNAL_PRICE_AUDIENCE_UNVERIFIED", "The trip record does not identify traveler nationality for this price condition");
     const quoteQuantity = input.quantity;
     if (quoteQuantity < 1) throw new ApiError(422, "EXTERNAL_PRICE_AUDIENCE_MISMATCH", "The trip party has no travelers matching this public price audience");
+    const sourceAmountMinor = source.originalAmountMinor;
+    const selectedAmountMinor = input.unitPriceMinor ?? sourceAmountMinor;
+    const converted = await this.convertExternalPrice(selectedAmountMinor, source.originalCurrency, trip.budgetCurrency);
+    const priceStatus = selectedAmountMinor === sourceAmountMinor ? "SOURCE" : "PRICE_OVERRIDDEN";
     let draft = await this.getDraft(tripId);
     if (input.expectedDraftRevision !== undefined && draft.revision !== input.expectedDraftRevision) throw new ApiError(409, "REVISION_CONFLICT", "Draft has changed", { currentRevision: draft.revision });
     let quote = await this.getQuote(tripId);
     const duplicateActivity = draft.items.some((item) => item.externalSourceId === source.id);
     const duplicateQuote = quote.items.some((item) => item.externalSourceId === source.id);
-    if (!duplicateActivity) draft = await this.addItineraryItem(tripId, { expectedRevision: draft.revision, dayIndex: input.dayIndex, title: source.placeName, location: source.placeName, localStartTime: input.localStartTime, localEndTime: input.localEndTime, timezone: input.timezone, description: `Tham quan ${source.placeName}. Giờ mở cửa và giá được đối chiếu theo nguồn tại thời điểm tra cứu.`, sourceUrl: source.canonicalUrl, externalSourceId: source.id });
+    if (!duplicateActivity) draft = await this.addItineraryItem(tripId, { expectedRevision: draft.revision, dayIndex: input.dayIndex, title: input.title ?? source.placeName, localStartTime: input.localStartTime, localEndTime: input.localEndTime, description: input.description ?? `Tham quan ${source.placeName}. Giờ mở cửa và giá được đối chiếu theo nguồn tại thời điểm tra cứu.`, ...(input.selectionReason ? { selectionReason: input.selectionReason } : {}), sourceUrl: source.canonicalUrl, externalSourceId: source.id, ...(input.placeId ? { placeId: input.placeId } : {}), ...(input.placeRunId ? { placeRunId: input.placeRunId } : {}) });
     const savedActivity = draft.items.find((item) => item.externalSourceId === source.id);
-    const unitPriceMinor = input.unitPriceMinor ?? source.originalAmountMinor;
-    if (!duplicateQuote) quote = await this.addQuoteItem(tripId, { expectedRevision: quote.revision, ...(savedActivity ? { itineraryItemId: savedActivity.id } : {}), externalSourceId: source.id, name: source.placeName, category: "Địa điểm", unit: source.pricingUnit, quantity: quoteQuantity, unitPriceMinor, sourceType: "EXTERNAL", sourceStatus: "UNVERIFIED", priceStatus: unitPriceMinor === source.originalAmountMinor ? "SOURCE" : "PRICE_OVERRIDDEN", serviceNameSnapshot: source.placeName, sourceUnitPriceMinor: source.originalAmountMinor, termsSnapshot: `Nguồn bên ngoài · Giá web ước tính · Chưa xác minh\nĐối tượng: ${source.audience}\nNhà xuất bản: ${source.publisher}\n${source.title}\n${source.canonicalUrl}\n${source.excerpt}`, sourceUrlSnapshot: source.canonicalUrl, validUntilSnapshot: null });
+    if (!duplicateQuote) quote = await this.addQuoteItem(tripId, { expectedRevision: quote.revision, ...(savedActivity ? { itineraryItemId: savedActivity.id } : {}), externalSourceId: source.id, name: source.placeName, category: "Địa điểm", unit: source.pricingUnit, quantity: quoteQuantity, unitPriceMinor: converted.amountMinor, sourceType: "EXTERNAL", sourceStatus: "UNVERIFIED", priceStatus, serviceNameSnapshot: source.placeName, sourceUnitPriceMinor: sourceAmountMinor, termsSnapshot: `Nguồn bên ngoài · Giá web ước tính · Chưa xác minh${priceStatus === "PRICE_OVERRIDDEN" ? " · Đơn giá do tư vấn viên điều chỉnh" : ""}\n${converted.terms}\nGiá nguồn: ${sourceAmountMinor} ${source.originalCurrency}\nĐối tượng: ${source.audience}\nNhà xuất bản: ${source.publisher}\n${source.title}\n${source.canonicalUrl}\n${source.excerpt}`, sourceUrlSnapshot: source.canonicalUrl, validUntilSnapshot: null });
     return { draft, quote };
   }
 

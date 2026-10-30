@@ -50,7 +50,7 @@
 
 ### Task 3: Connect agent search and product form
 
-**Files:** agent tool execution and result compaction, frontend `dist/api-sync.js` / `dist/redesign.js`, QA scripts.
+**Files:** agent tool execution and result compaction, frontend `frontend/api-sync.js` / `frontend/redesign.js`, QA scripts.
 
 - [ ] Test agent search delegates to semantic catalog results, and unavailable semantic search falls back to keyword matching.
 - [ ] Change offer edit form and table label from “Điều kiện” to “Thông tin chi tiết”, posting `details`.

@@ -13,12 +13,12 @@ import { TripService } from "../src/modules/trips/trip.service.js";
 async function setup() {
   const repository = new InMemoryTripRepository();
   const trips = new TripService(repository);
-  const planning = new PlanningService(repository, new InMemoryPlanningRepository());
+  const planning = new PlanningService(repository, new InMemoryPlanningRepository(), undefined, undefined, undefined, "Asia/Ho_Chi_Minh");
   const model: AgentModel = {
     decide: async ({ turn }) => turn === 1
       ? { type: "tool_calls", calls: [{ name: "search_supplier_offers", arguments: { query: "Tokyo Tower admission price" } }] }
       : turn === 2
-        ? { type: "tool_calls", calls: [1, 2, 3].map((dayIndex) => ({ name: "add_itinerary_item", arguments: { dayIndex, title: `Tokyo Tower ngày ${dayIndex}`, location: "Tokyo", localStartTime: "10:00", localEndTime: "12:00", timezone: "Asia/Tokyo", description: "Tham quan ngắm cảnh", unpricedReason: "Không có giá nội bộ phù hợp." } })) }
+        ? { type: "tool_calls", calls: [1, 2, 3].map((dayIndex) => ({ name: "add_itinerary_item", arguments: { dayIndex, title: `Tokyo Tower ngày ${dayIndex}`, location: "Tokyo", localStartTime: "10:00", localEndTime: "12:00", description: "Tham quan ngắm cảnh", unpricedReason: "Không có giá nội bộ phù hợp." } })) }
         : { type: "final", text: "Bản nháp đã sẵn sàng." },
   };
   const catalog = {

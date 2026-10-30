@@ -15,7 +15,22 @@ export class PrismaVersionRepository implements PlanVersionRepository {
       if (claimed.count !== 1) { const latest = await tx.trip.findUnique({ where: { id: tripId }, select: { revision: true } }); return latest ? { kind: "conflict", currentRevision: latest.revision } as const : { kind: "notFound" } as const; }
       const draft = await tx.itineraryDraft.upsert({ where: { tripId }, create: { id: snapshot.draft.id, tripId, revision: snapshot.draft.revision + 1, updatedAt: now }, update: { revision: { increment: 1 }, updatedAt: now } });
       await tx.itineraryItem.deleteMany({ where: { draftId: draft.id } });
-      if (snapshot.draft.items.length) await tx.itineraryItem.createMany({ data: snapshot.draft.items.map((item) => ({ ...item, sourceUrl: item.sourceUrl ?? null, draftId: draft.id })) });
+      if (snapshot.draft.items.length) await tx.itineraryItem.createMany({ data: snapshot.draft.items.map((item) => {
+        const legacy = item as typeof item & { googlePlaceId?: string | null };
+        const { googlePlaceId: _legacyGooglePlaceId, ...authored } = legacy;
+        return {
+          ...authored,
+          selectionReason: item.selectionReason ?? null,
+          placeProvider: item.placeProvider ?? (legacy.googlePlaceId ? "GOOGLE_LEGACY" : null),
+          placeId: item.placeId ?? legacy.googlePlaceId ?? null,
+          placeName: item.placeName ?? null,
+          placeAddress: item.placeAddress ?? null,
+          placeLatitude: item.placeLatitude ?? null,
+          placeLongitude: item.placeLongitude ?? null,
+          sourceUrl: item.sourceUrl ?? null,
+          draftId: draft.id,
+        };
+      }) });
       const quote = await tx.quote.upsert({ where: { tripId }, create: { id: snapshot.quote.id, tripId, currency: snapshot.quote.currency, revision: snapshot.quote.revision + 1, totalAmountMinor: BigInt(snapshot.quote.totalAmountMinor), status: snapshot.quote.status, updatedAt: now }, update: { currency: snapshot.quote.currency, revision: { increment: 1 }, totalAmountMinor: BigInt(snapshot.quote.totalAmountMinor), status: snapshot.quote.status, updatedAt: now } });
       await tx.quoteItem.deleteMany({ where: { quoteId: quote.id } });
       if (snapshot.quote.items.length) await tx.quoteItem.createMany({ data: snapshot.quote.items.map((item) => ({ ...item, quoteId: quote.id, unitPriceMinor: BigInt(item.unitPriceMinor ?? 0), amountMinor: BigInt(item.amountMinor ?? 0), sourceUnitPriceMinor: item.sourceUnitPriceMinor == null ? null : BigInt(item.sourceUnitPriceMinor), validUntilSnapshot: item.validUntilSnapshot ? new Date(`${item.validUntilSnapshot}T00:00:00Z`) : null })) });

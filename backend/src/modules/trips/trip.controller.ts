@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import { ApiError } from "../../shared/http/api-error.js";
 import { agentLogger } from "../../shared/observability/agent-logger.js";
+import { getRequestLogContext } from "../../middleware/request-logging.middleware.js";
 
 import type {
   CreateTripRequest,
@@ -21,7 +22,7 @@ export class TripController {
   constructor(private readonly service: TripService) {}
 
   create: RequestHandler = async (request, response) => {
-    const runId = correlationId(request.get("X-Client-Run-Id"));
+    const runId = correlationId(request.get("X-Client-Run-Id") ?? getRequestLogContext(response.locals as Record<string, unknown>)?.requestId);
     const startedAt = Date.now();
     agentLogger.info({ event: "http.trip.create.started", runId });
     try {

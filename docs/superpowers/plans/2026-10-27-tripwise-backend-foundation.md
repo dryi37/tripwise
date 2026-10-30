@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Preserve the existing buildless frontend under `dist/`.
+- Preserve the existing buildless frontend under `frontend/`.
 - Use `/api/v1`, UUID identifiers, camelCase JSON, cursor pagination, structured errors, and optimistic revision checks.
 - Keep model/network calls outside database transactions.
 - Do not implement agent, retrieval, auth, or frontend integration in this slice.

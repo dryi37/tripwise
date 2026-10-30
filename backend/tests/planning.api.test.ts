@@ -19,6 +19,9 @@ async function setup() {
     tripRepository,
     new InMemoryPlanningRepository(),
     dependencies,
+    undefined,
+    undefined,
+    "Asia/Ho_Chi_Minh",
   );
   const trip = await tripService.create({
     title: "Seoul family trip",
@@ -47,7 +50,6 @@ describe("planning API", () => {
         location: "Seoul",
         localStartTime: "09:00",
         localEndTime: "11:00",
-        timezone: "Asia/Seoul",
         description: "Tham quan cung điện",
       });
 
@@ -67,7 +69,6 @@ describe("planning API", () => {
         location: "Seoul",
         localStartTime: "09:00",
         localEndTime: "11:00",
-        timezone: "Asia/Seoul",
         description: "Tham quan cung điện",
         quantity: 2,
       });
@@ -91,7 +92,7 @@ describe("planning API", () => {
     const { app, trip } = await setup();
     const response = await request(app).post(`/api/v1/trips/${trip.id}/draft/items`).send({
       expectedRevision: 1, dayIndex: 1, title: "Vé cung điện", location: "Seoul",
-      localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul",
+      localStartTime: "09:00", localEndTime: "11:00",
       description: "", quantity: 3, unit: "vé", unitPriceMinor: 45_000,
     });
     const quote = await request(app).get(`/api/v1/trips/${trip.id}/draft/quote`);
@@ -113,7 +114,6 @@ describe("planning API", () => {
       location: "Jongno-gu",
       localStartTime: "09:00",
       localEndTime: "11:00",
-      timezone: "Asia/Seoul",
       description: "Keep this text",
     });
     const itemId = created.body.data.items[0].id;
@@ -143,7 +143,6 @@ describe("planning API", () => {
       location: "Seoul",
       localStartTime: "09:00",
       localEndTime: "10:00",
-      timezone: "Asia/Seoul",
       description: "",
     });
     const currentQuote = await request(app).get(`/api/v1/trips/${trip.id}/draft/quote`);

@@ -34,7 +34,7 @@ async function setup() {
   const tripService = new TripService(trips, dependencies);
   const catalog = new FixedCatalog();
   const catalogService = new CatalogService(catalog, dependencies);
-  const planningService = new PlanningService(trips, new InMemoryPlanningRepository(), dependencies, catalogService);
+  const planningService = new PlanningService(trips, new InMemoryPlanningRepository(), dependencies, catalogService, undefined, "Asia/Ho_Chi_Minh");
   const trip = await tripService.create({ title: "Seoul", customerName: "Minh", origin: "HCM", destination: "Seoul", startDate: "2027-04-05", endDate: "2027-04-09", travelers: 6, budgetAmountMinor: 120_000_000, budgetCurrency: "VND" });
   return { app: createTestApp({ tripService, planningService, catalogService }), trip, catalog };
 }

@@ -15,7 +15,7 @@ export interface ExternalSource {
   audience: string;
   suitable: boolean;
   confidence: number;
-  verificationStatus: "UNVERIFIED" | "VERIFIED" | "REJECTED";
+  verificationStatus: "UNVERIFIED" | "VERIFIED";
   evidence: Record<string, unknown>;
   createdAt: Date;
 }

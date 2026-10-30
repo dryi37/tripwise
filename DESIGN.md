@@ -13,7 +13,7 @@ These are interaction references, not copied assets or claims about internal arc
 ## Scope
 Refresh shared shell, trip list, itinerary editor, quote provenance, knowledge/rate lists and dialogs. Add a bounded sample source catalog, source detail, explicit quotation addition/update and local client preview. No customer messaging, payments or real booking. Customer requirements, schedule, quote and source snapshots persist locally and travel together in versions. Use shared existing forms, modal and toast.
 ## Visual tokens
-Runtime owner: dist/redesign.css :root overrides maintained dist/styles.css.
+Runtime owner: frontend/redesign.css :root overrides maintained frontend/styles.css.
 - Forest green --green #075342: primary actions and selected days.
 - IKIGAI lime --lime #c3df55: selected primary navigation.
 - Cool canvas --canvas #f6f8f8; white --surface #fff.
@@ -21,7 +21,7 @@ Runtime owner: dist/redesign.css :root overrides maintained dist/styles.css.
 - External-source blue --blue #386b98, distinguished with text and globe icon.
 Type: Segoe UI / Arial offline stack. Heading 26–28px semibold, body 14px, controls 12–13px, secondary metadata 10–12px. Display and utility use different scale/weight rather than network fonts. Responsive layout increases key mobile sizes.
 ## Layout
-216px desktop navigation, 68px header. Workspace main canvas plus 304px assistant/requirements/budget rail. Day selection uses finite horizontal scroll; quote table owns its own horizontal scroll. At 850px rail moves below; at 600px navigation becomes bottom bar with all four primary pages. No geographic map is fabricated: real location links open Google Maps.
+216px desktop navigation, 68px header. Workspace main canvas plus compact assistant/requirements/budget rail. The itinerary uses a compact destination cover, a day selector, the activity timeline, then that day's map. Pins represent only activities linked to a selected OSM place; hovering, focusing, or tapping shows the agent's selection reason. Unresolved legacy activities remain in the accessible timeline without invented pins. At 850px the rail moves below; at 600px navigation becomes a bottom bar.
 ## Signature
 A source-aware plan: internal green and external blue provenance badges connect source cards to quotation lines and saved versions.
 ## Canonical behavior
@@ -42,7 +42,7 @@ User requested a redesign of the whole intake screen. One white form card combin
 Removed the explanatory workflow block at user request. The trips page prioritizes create, search, status filtering and resuming selected work. Status counters are real filter buttons, including ACTIVE as the union of NEW and DRAFT. Filter state remains in hash URL and aligns with the status dropdown. A compact resume row replaces the oversized destination feature. No noninteractive process marketing panels on the working dashboard. QA: scripts/qa/qa-practical-home.cjs.
 
 ## Advisor-first trips dashboard
-Supersedes the compact resume-row presentation while preserving the Practical trips dashboard behavior. The Trips route uses a hybrid product register: operational density from advisor tools with one restrained destination spotlight. The selected trip is the visual anchor, using the local Seoul image only when destination content matches; all other content remains a quiet working surface. The pipeline stays interactive, the semantic table becomes stacked trip records below 700px, and search/filter/hash behavior remains canonical. Runtime ownership remains `dist/redesign.js` for composition and `dist/redesign.css` for scoped `.trips-dashboard` tokens and styling. The permanent signature is “active trip as working brief,” not a marketing hero or decorative KPI grid. QA: `scripts/qa/qa-trips-dashboard.cjs` plus real-browser desktop/mobile checks.
+Supersedes the compact resume-row presentation while preserving the Practical trips dashboard behavior. The Trips route uses a hybrid product register: operational density from advisor tools with one restrained destination spotlight. The selected trip is the visual anchor, using the local Seoul image only when destination content matches; all other content remains a quiet working surface. The pipeline stays interactive, the semantic table becomes stacked trip records below 700px, and search/filter/hash behavior remains canonical. Runtime ownership remains `frontend/redesign.js` for composition and `frontend/redesign.css` for scoped `.trips-dashboard` tokens and styling. The permanent signature is “active trip as working brief,” not a marketing hero or decorative KPI grid. QA: `scripts/qa/qa-trips-dashboard.cjs` plus real-browser desktop/mobile checks.
 ## Intake refinement — final layout
 Supersedes Compact intake visual revision. The final intake groups core trip information first, party/budget second, optional preferences third. One white form with separated sections, 14px input values, no marketing introduction or AI title icon. The summary has a restrained light header rather than a large forest-green block. Summary items are real edit shortcuts that focus matching fields, with reduced-motion-safe scrolling. Form IDs, review, validation, draft preservation, sample generation and manual entry remain unchanged. QA: scripts/qa/qa-intake.cjs and scripts/qa/qa-intake-layout.cjs, plus trips/source regressions.
 

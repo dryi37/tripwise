@@ -12,7 +12,7 @@ The catalog screen and agent should treat a service as one catalog row with at m
 - Preserve every existing price by splitting each service with multiple prices into separate service records during migration.
 - Model the relation as a singular optional price in Prisma and backend internals; serialize the existing `offers` array only at the API/agent boundary for compatibility.
 - Keep only verified prices eligible for agent search and Qdrant indexing.
-- Configure the result count for each agent search tool independently through the required backend environment variable `AGENT_SEARCH_RESULTS_PER_TOOL` (example value: `5`). The model does not receive or send a result-limit parameter; each search service owns its configured result count.
+- Configure the result count for each agent search tool independently through the required backend environment variable `AGENT_SEARCH_RESULTS_PER_TOOL` (example value: `3`). The model does not receive or send a result-limit parameter; each search service owns its configured result count.
 
 ## Non-goals
 

@@ -9,16 +9,16 @@ const revision = z.object({ expectedRevision: z.number().int().positive() }).str
 const itineraryFields = z.object({
   dayIndex: z.number().int().positive(),
   title: z.string().trim().min(1).max(160),
-  location: z.string().trim().max(200),
   localStartTime: time,
   localEndTime: time,
-  timezone: z.string().trim().min(1).max(80),
   description: z.string().trim().max(2_000),
+  selectionReason: z.string().trim().max(1_000).optional(),
+  placeId: z.string().trim().min(1).max(255).optional(),
   sourceUrl: z.string().trim().url().max(2_000).nullable().optional().refine((value) => !value || /^https?:\/\//i.test(value), "sourceUrl must use http or https"),
 }).strict();
 
 const createItineraryFields = itineraryFields.extend({
-  location: z.string().trim().max(200).default(""),
+  placeId: z.string().trim().min(1).max(255),
   description: z.string().trim().max(2_000).default(""),
   quantity: z.number().int().positive().max(2_147_483_647).default(1),
   unit: z.string().trim().min(1).max(60).optional(),

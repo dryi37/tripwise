@@ -4,12 +4,12 @@ import { loadEnvironment } from "../src/config/env.js";
 
 const databaseUrl = "postgresql://user:pass@localhost:5432/db";
 const baseEnvironment: NodeJS.ProcessEnv = {
-  NODE_ENV: "development", PORT: "3101", DATABASE_URL: databaseUrl,
+  NODE_ENV: "development", PORT: "3101", DATABASE_URL: databaseUrl, APP_TIMEZONE: "Asia/Ho_Chi_Minh",
+  FX_RATE_API_URL: "https://api.frankfurter.dev/v2", FX_RATE_TIMEOUT_MS: "10000", FX_RATE_CACHE_TTL_MS: "21600000",
   GEMMA_MODEL: "gemma-4-26b-a4b-it", AGENT_MODEL_CALLS_PER_DAY: "12", AGENT_TOOL_CALLS_PER_DAY: "20",
-  AGENT_REQUEST_TIMEOUT_MS: "300000", AGENT_SEARCH_RESULTS_PER_TOOL: "5", AGENT_LOG_FILE: "../artifacts/logs/backend/agent-runs.jsonl",
+  AGENT_REQUEST_TIMEOUT_MS: "300000", AGENT_SEARCH_RESULTS_PER_TOOL: "5", APP_LOG_FILE: "../artifacts/logs/backend/application.jsonl",
   GEMMA_REQUEST_TIMEOUT_MS: "60000", GEMMA_MAX_RETRIES: "7", GEMMA_MAX_TOOL_RESULT_CONTEXT_CHARS: "13000",
   GEMMA_RETRY_BASE_DELAY_MS: "250", GEMMA_RETRY_MAX_DELAY_MS: "5000", GEMMA_MAX_OUTPUT_TOKENS: "2048",
-  GEMMA_RESEARCH_CALLS_MINIMUM: "8", GEMMA_RESEARCH_CALLS_PER_TRIP_DAY: "4",
   QDRANT_URL: "http://127.0.0.1:6333", QDRANT_COLLECTION: "tripwise_knowledge", QDRANT_CATALOG_COLLECTION: "tripwise_catalog_offers",
   QDRANT_REQUEST_TIMEOUT_MS: "10000", QDRANT_COLLECTION_CHECK_TIMEOUT_MS: "5000", QDRANT_PAYLOAD_BATCH_SIZE: "256",
   EMBEDDING_MODEL: "gemini-embedding-001", KNOWLEDGE_CHUNK_SIZE: "1200", KNOWLEDGE_CHUNK_OVERLAP: "150",
@@ -38,6 +38,16 @@ describe("environment validation", () => {
     expect(validEnvironment()).toMatchObject({ NODE_ENV: "development" });
   });
 
+  it("allows Places to be disabled and requires complete server configuration when enabled", () => {
+    expect(validEnvironment().GOOGLE_PLACES_API_KEY).toBeUndefined();
+    expect(() => validEnvironment({ GOOGLE_PLACES_API_KEY: "test-key" })).toThrow();
+    expect(validEnvironment({
+      GOOGLE_PLACES_API_KEY: "test-key", GOOGLE_PLACES_API_URL: "https://places.googleapis.com/v1",
+      GOOGLE_PLACES_TIMEOUT_MS: "8000", GOOGLE_PLACES_CANDIDATE_TTL_MS: "900000", GOOGLE_PLACES_MAX_CANDIDATES: "1000",
+      GOOGLE_PLACES_RATE_LIMIT_MAX_REQUESTS: "30", GOOGLE_PLACES_RATE_LIMIT_WINDOW_MS: "60000",
+    })).toMatchObject({ GOOGLE_PLACES_API_KEY: "test-key", GOOGLE_PLACES_MAX_CANDIDATES: 1000 });
+  });
+
   it("loads bounded local Qdrant and embedding configuration", () => {
     expect(validEnvironment()).toMatchObject({
       QDRANT_URL: "http://127.0.0.1:6333",
@@ -60,11 +70,9 @@ describe("environment validation", () => {
       GEMMA_RETRY_BASE_DELAY_MS: 250,
       GEMMA_RETRY_MAX_DELAY_MS: 5_000,
       GEMMA_MAX_OUTPUT_TOKENS: 2_048,
-      GEMMA_RESEARCH_CALLS_MINIMUM: 8,
-      GEMMA_RESEARCH_CALLS_PER_TRIP_DAY: 4,
       AGENT_RATE_LIMIT_MAX_REQUESTS: 10,
       AGENT_RATE_LIMIT_WINDOW_MS: 60_000,
-      AGENT_LOG_FILE: "../artifacts/logs/backend/agent-runs.jsonl",
+      APP_LOG_FILE: "../artifacts/logs/backend/application.jsonl",
       API_JSON_BODY_LIMIT_BYTES: 1_048_576,
       CORS_ALLOWED_ORIGINS: ["http://localhost:8080", "http://127.0.0.1:8080"],
     });

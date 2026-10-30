@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import { ApiError } from "../../shared/http/api-error.js";
 import { agentLogger } from "../../shared/observability/agent-logger.js";
+import { getRequestLogContext } from "../../middleware/request-logging.middleware.js";
 
 import type { RunTourAgentRequest } from "./tour-agent.schemas.js";
 import type { TourAgentService } from "./tour-agent.service.js";
@@ -12,7 +13,7 @@ export class TourAgentController {
 
   run: RequestHandler = async (request, response) => {
     const input = response.locals.validated as RunTourAgentRequest;
-    const runId = correlationId(request.get("X-Client-Run-Id"));
+    const runId = correlationId(request.get("X-Client-Run-Id") ?? getRequestLogContext(response.locals as Record<string, unknown>)?.requestId);
     const startedAt = Date.now();
     agentLogger.info({ event: "http.agent.request.started", runId, tripId: input.params.tripId });
     try {

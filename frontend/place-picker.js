@@ -1,0 +1,13 @@
+'use strict';
+(function(global){
+  let timer=null,controller=null,sequence=0;
+  const escapeText=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function search({tripId,query,list,placeIdInput}){
+    clearTimeout(timer);controller?.abort();const current=++sequence;placeIdInput.value='';list.replaceChildren();
+    const term=query.trim();if(term.length<2)return;
+    timer=setTimeout(async()=>{controller=new AbortController();try{const response=await global.TripwiseApi.searchPlaces(tripId,term,controller.signal);if(current!==sequence||!list.isConnected)return;for(const place of response.data||[]){const button=document.createElement('button');button.type='button';button.className='place-result';button.setAttribute('role','option');button.dataset.placeId=place.placeId;button.dataset.name=place.displayName;button.dataset.address=place.formattedAddress;button.innerHTML='<strong>'+escapeText(place.displayName)+'</strong><span>'+escapeText(place.formattedAddress)+'</span>';list.append(button)}if(!list.children.length)list.innerHTML='<p class="place-picker-status">Không tìm thấy địa điểm phù hợp. Hãy thử tên địa điểm cụ thể hơn.</p>'}catch(error){if(current!==sequence||error?.name==='AbortError')return;const message=error?.code==='PLACE_LOOKUP_UNAVAILABLE'?'Dịch vụ tìm địa điểm OpenStreetMap hiện chưa phản hồi. Hãy kiểm tra kết nối mạng hoặc thử lại sau.':'Không thể tìm địa điểm lúc này. Hãy thử lại sau.';const status=document.createElement('p'),retry=document.createElement('button');status.className='place-picker-status';status.textContent=message;retry.type='button';retry.className='place-search-retry';retry.textContent='Thử lại';retry.addEventListener('click',()=>search({tripId,query:term,list,placeIdInput}));list.replaceChildren(status,retry)}},650);
+  }
+  document.addEventListener('click',event=>{const button=event.target.closest('.place-result');if(!button)return;const picker=button.closest('.place-picker');picker.querySelector('#place-id').value=button.dataset.placeId;picker.querySelector('#place-search').value=button.dataset.name;picker.querySelectorAll('.place-result').forEach(item=>item.setAttribute('aria-selected',String(item===button)));picker.querySelector('#place-results').dataset.selected='true'});
+  document.addEventListener('input',event=>{if(event.target.id==='place-search'){const picker=event.target.closest('.place-picker');if(!picker)return;picker.querySelector('#place-id').value='';const results=picker.querySelector('#place-results');if(results)delete results.dataset.selected}});
+  global.TripwisePlacePicker={search};
+})(window);

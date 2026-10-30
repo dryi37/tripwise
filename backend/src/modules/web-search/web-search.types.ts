@@ -7,7 +7,7 @@ export interface RawWebSearchResult {
   url: string;
   publisher?: string;
   excerpt: string;
-  rawContent?: string;
+  /** Price in the smallest unit of currency (for example USD 12.50 is 1250). */
   amount?: number;
   currency?: string;
   pricingUnit?: string;

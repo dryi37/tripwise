@@ -1,0 +1,14 @@
+const fs = require('fs');
+const assert = require('assert');
+const map = fs.readFileSync('frontend/itinerary-map.js','utf8');
+const loader = fs.readFileSync('frontend/google-maps.js','utf8');
+const sync = fs.readFileSync('frontend/api-sync.js','utf8');
+assert.match(map,/controller\.abort\(\)/,'changing day/trip must abort hydration');
+assert.match(map,/active\.token!==token/,'late responses must not overwrite the current day');
+assert.match(map,/reason\.textContent=point\.selectionReason/,'popup content must use text nodes');
+assert.match(map,/new Map\(host/,'the selected day gets a Google Map instance');
+assert.match(map,/const groups=new Map\(\)/,'coincident places are grouped');
+assert.match(loader,/googleMapsBrowserApiKey[\s\S]*googleMapsMapId/,'Maps SDK requires configured key and map ID');
+assert.match(sync,/googlePlaceId:x\.googlePlaceId/,'Place ID persists while map hydration payload is not mapped into the trip');
+assert.doesNotMatch(sync,/latitude:.*longitude:/,'hydrated coordinates must not enter the browser trip model');
+console.log('qa-itinerary-map: lifecycle, transient hydration, and safe popup contracts passed');

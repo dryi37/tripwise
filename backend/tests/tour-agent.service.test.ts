@@ -11,6 +11,8 @@ import type { CatalogService } from "../src/modules/catalog/catalog.service.js";
 import { ExternalSourceService } from "../src/modules/external-sources/external-source.service.js";
 import { InMemoryExternalSourceRepository } from "../src/modules/external-sources/infrastructure/in-memory-external-source.repository.js";
 import { WebSearchService } from "../src/modules/web-search/web-search.service.js";
+import { PlaceSearchStore } from "../src/modules/places/place-search.store.js";
+import { PlacesService } from "../src/modules/places/places.service.js";
 
 class ScriptedModel implements AgentModel {
   readonly inputs: AgentModelInput[] = [];
@@ -35,7 +37,7 @@ async function setup(model: AgentModel, maxIterations = 20, maxToolCalls = 60, r
   const trips = new TripService(repository, dependencies);
   const externalSources = new ExternalSourceService(new InMemoryExternalSourceRepository(), dependencies);
   const planningRepository = new InMemoryPlanningRepository();
-  const planning = new PlanningService(repository, planningRepository, dependencies, undefined, externalSources);
+  const planning = new PlanningService(repository, planningRepository, dependencies, undefined, externalSources, "Asia/Ho_Chi_Minh");
   const trip = await trips.create({
     title: "Seoul family trip",
     customerName: "Gia đình anh Minh",
@@ -57,12 +59,37 @@ async function setupWithKnowledge(model: AgentModel) {
 }
 
 describe("TourAgentService", () => {
+  it("requires an exact same-run Google Places candidate and persists its Place ID", async () => {
+    const result = await setup(new ScriptedModel([]));
+    const places = new PlacesService({
+      search: async () => [{ googlePlaceId: "ChIJ-seoul-palace", displayName: "Gyeongbokgung Palace", formattedAddress: "Jongno-gu, Seoul", latitude: 37.5796, longitude: 126.977 }],
+      getDetails: async (googlePlaceId) => ({ googlePlaceId, displayName: "Gyeongbokgung Palace", formattedAddress: "Jongno-gu, Seoul", latitude: 37.5796, longitude: 126.977 }),
+    }, new PlaceSearchStore(60_000, 20), result.trips, 5);
+    const planning = new PlanningService(result.tripRepository, new InMemoryPlanningRepository(), result.dependencies, undefined, undefined, "Asia/Ho_Chi_Minh", undefined, places);
+    const model: AgentModel = {
+      decide: async (input) => {
+        if (input.turn === 1) return { type: "tool_calls", calls: [{ name: "search_places", arguments: { query: "Gyeongbokgung Palace" } }] };
+        const searchResult = input.toolResults?.find((entry) => entry.tool === "search_places")?.result as Array<{ googlePlaceId: string }> | undefined;
+        const confirmation = input.toolResults?.flatMap((entry) => Array.isArray(entry.result) ? [] : [entry.result]).find((item) => item && typeof item === "object" && (item as { reason?: string }).reason === "PRICE_RESEARCH_CONFIRMATION_REQUIRED") as { confirmationId?: string } | undefined;
+        const args = { dayIndex: 1, title: "Gyeongbokgung Palace visit", localStartTime: "09:00", localEndTime: "11:00", description: "Visit the palace", selectionReason: "Matches the customer's history interest", googlePlaceId: searchResult?.[0]?.googlePlaceId, unpricedReason: "Chưa tìm được giá đáng tin cậy." , ...(confirmation?.confirmationId ? { unpricedConfirmationId: confirmation.confirmationId } : {}) };
+        if (!confirmation) return { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: args }] };
+        if (input.turn === 2) return { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: args }] };
+        if (input.turn === 3) return { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: args }] };
+        return { type: "final", text: "Đã thêm địa điểm cụ thể." };
+      },
+    };
+    const agent = new TourAgentService(result.trips, planning, model, 20, 60, undefined, undefined, undefined, undefined, 300_000, places);
+    const run = await agent.run(result.trip.id, { instruction: "Add a visit to Gyeongbokgung Palace" });
+    expect(run.draft.items).toMatchObject([{ googlePlaceId: "ChIJ-seoul-palace", selectionReason: "Matches the customer's history interest" }]);
+    expect(run.draft.items[0]?.googlePlaceId).toBe("ChIJ-seoul-palace");
+  });
+
   it("logs correlated run, model, and tool events without logging the instruction", async () => {
     const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const model = new ScriptedModel([
       { type: "tool_calls", calls: [
         { name: "search_supplier_offers", arguments: { query: "Gyeongbokgung ticket price Seoul" } },
-        { name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul", description: "Visit", unpricedReason: "Không có giá phù hợp." } },
+        { name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", description: "Visit", unpricedReason: "Không có giá phù hợp." } },
       ] },
       { type: "final", text: "Đã thêm lịch trình." },
     ]);
@@ -121,7 +148,6 @@ describe("TourAgentService", () => {
               location: "Jongno-gu, Seoul",
               localStartTime: "09:00",
               localEndTime: "11:00",
-              timezone: "Asia/Seoul",
               description: "Tham quan nhẹ nhàng cho gia đình",
               unpricedReason: "Không có offer nội bộ phù hợp.",
             },
@@ -134,7 +160,6 @@ describe("TourAgentService", () => {
               location: "Jongno-gu, Seoul",
               localStartTime: "13:30",
               localEndTime: "15:30",
-              timezone: "Asia/Seoul",
               description: "Đi bộ và chụp ảnh",
               unpricedReason: "Không có offer nội bộ phù hợp.",
             },
@@ -172,12 +197,12 @@ describe("TourAgentService", () => {
     };
     const model = new ScriptedModel([
       { type: "tool_calls", calls: [{ name: "search_supplier_offers", arguments: { query: "Gyeongbokgung Palace ticket price Seoul" } }] },
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul", description: "Tham quan cung điện", supplierOfferId: offer.id } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", description: "Tham quan cung điện", supplierOfferId: offer.id } }] },
       { type: "final", text: "Đã thêm hoạt động và báo giá." },
     ]);
     const base = await setup(model);
     const catalog = { searchForAgent: vi.fn(async () => [{ ...offer.service, offers: [offer] }]), getOfferForQuote: vi.fn(async () => offer) } as unknown as CatalogService;
-    const planning = new PlanningService(base.tripRepository, base.planningRepository, base.dependencies, catalog, base.externalSources);
+    const planning = new PlanningService(base.tripRepository, base.planningRepository, base.dependencies, catalog, base.externalSources, "Asia/Ho_Chi_Minh");
     const agent = new TourAgentService(base.trips, planning, model, 20, 60, catalog, undefined, undefined, undefined, 300_000);
 
     const result = await agent.run(base.trip.id, { instruction: "Thêm cung điện và đồng bộ giá vé nội bộ" });
@@ -190,9 +215,9 @@ describe("TourAgentService", () => {
 
   it("requires a place-specific price lookup before saving an unpriced itinerary activity", async () => {
     const model = new ScriptedModel([
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung Palace", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul", description: "Visit the palace", unpricedReason: "Chưa tìm thấy giá phù hợp cho chuyến đi." } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung Palace", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", description: "Visit the palace", unpricedReason: "Chưa tìm thấy giá phù hợp cho chuyến đi." } }] },
       { type: "tool_calls", calls: [{ name: "search_supplier_offers", arguments: { query: "Gyeongbokgung Palace admission price" } }] },
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung Palace", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul", description: "Visit the palace", unpricedReason: "Không có offer nội bộ phù hợp." } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung Palace", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", description: "Visit the palace", unpricedReason: "Không có offer nội bộ phù hợp." } }] },
       { type: "final", text: "Đã thêm gợi ý chưa có giá." },
     ]);
     const base = await setup(model);
@@ -229,7 +254,7 @@ describe("TourAgentService", () => {
   it("allows an unpriced activity after research found no place-specific match", async () => {
     const model = new ScriptedModel([
       { type: "tool_calls", calls: [{ name: "search_supplier_offers", arguments: { query: "Seoul trip prices" } }] },
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Dạo khu trung tâm", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul", description: "Gợi ý khám phá khu vực trung tâm", unpricedReason: "Không tìm thấy giá phù hợp." } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Dạo khu trung tâm", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", description: "Gợi ý khám phá khu vực trung tâm", unpricedReason: "Không tìm thấy giá phù hợp." } }] },
       { type: "final", text: "Đã thêm gợi ý chưa có giá." },
     ]);
     const catalog = { searchForAgent: vi.fn(async () => []) } as unknown as CatalogService;
@@ -246,7 +271,7 @@ describe("TourAgentService", () => {
     const model = new ScriptedModel([
       { type: "final", text: "Tôi đã tìm được thông tin." },
       { type: "tool_calls", calls: [{ name: "search_supplier_offers", arguments: { query: "Gyeongbokgung Palace ticket price" } }] },
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung Palace", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul", description: "Tham quan cung điện", unpricedReason: "Không có giá phù hợp trong nguồn đã tra." } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung Palace", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", description: "Tham quan cung điện", unpricedReason: "Không có giá phù hợp trong nguồn đã tra." } }] },
       { type: "final", text: "Đã thêm Gyeongbokgung vào lịch trình." },
     ]);
     const catalog = { searchForAgent: vi.fn(async () => []) } as unknown as CatalogService;
@@ -264,10 +289,10 @@ describe("TourAgentService", () => {
   it("does not let an explicit itinerary finish when any trip day has no activity", async () => {
     const model = new ScriptedModel([
       { type: "tool_calls", calls: [{ name: "search_supplier_offers", arguments: { query: "Gyeongbokgung admission Seoul" } }] },
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", timezone: "Asia/Seoul", description: "Tham quan cung điện", unpricedReason: "Chưa có giá phù hợp." } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Gyeongbokgung", location: "Seoul", localStartTime: "09:00", localEndTime: "11:00", description: "Tham quan cung điện", unpricedReason: "Chưa có giá phù hợp." } }] },
       { type: "final", text: "Đã thêm ngày đầu." },
       { type: "tool_calls", calls: [{ name: "search_supplier_offers", arguments: { query: "Bukchon Hanok village Seoul" } }] },
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 2, title: "Bukchon Hanok Village", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", timezone: "Asia/Seoul", description: "Dạo làng Hanok", unpricedReason: "Chưa có giá phù hợp." } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 2, title: "Bukchon Hanok Village", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", description: "Dạo làng Hanok", unpricedReason: "Chưa có giá phù hợp." } }] },
       { type: "final", text: "Đã thêm hoạt động cho cả hai ngày." },
     ]);
     const catalog = { searchForAgent: vi.fn(async () => []) } as unknown as CatalogService;
@@ -301,7 +326,7 @@ describe("TourAgentService", () => {
       {
         type: "tool_calls",
         calls: [
-          { name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Valid first item", location: "Seoul", localStartTime: "09:00", localEndTime: "10:00", timezone: "Asia/Seoul", description: "" } },
+          { name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Valid first item", location: "Seoul", localStartTime: "09:00", localEndTime: "10:00", description: "" } },
           { name: "add_itinerary_item", arguments: { dayIndex: 999 } },
         ],
       },
@@ -309,7 +334,7 @@ describe("TourAgentService", () => {
         type: "tool_calls",
         calls: [
           { name: "search_supplier_offers", arguments: { query: "Valid first item Seoul" } },
-          { name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Valid first item", location: null, localStartTime: "9:00 AM", localEndTime: "10:00 AM", timezone: "Asia/Seoul", description: "Gợi ý tham quan", unpricedReason: `Chưa có nguồn giá phù hợp. ${"x".repeat(300)}` } },
+          { name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Valid first item", location: null, localStartTime: "9:00 AM", localEndTime: "10:00 AM", description: "Gợi ý tham quan", unpricedReason: `Chưa có nguồn giá phù hợp. ${"x".repeat(300)}` } },
         ],
       },
       { type: "final", text: "Đã thêm hoạt động." },
@@ -400,7 +425,6 @@ describe("TourAgentService", () => {
         location: "Seoul",
         localStartTime: "09:00",
         localEndTime: "10:00",
-        timezone: "Asia/Seoul",
         description: "",
         unpricedReason: "Không tìm thấy giá phù hợp.",
       },
@@ -440,7 +464,7 @@ describe("TourAgentService", () => {
   it("searches the web, issues persisted source ids, then adds linked itinerary and estimate", async () => {
     const model = new ScriptedModel([
       { type: "tool_calls", calls: [{ name: "search_web", arguments: { query: "Lotte World official tickets" } }] },
-      { type: "tool_calls", calls: [{ name: "add_place_from_external_source", arguments: { externalSourceId: "00000000-0000-4000-8000-000000000003", dayIndex: 1, localStartTime: "10:00", localEndTime: "14:00", timezone: "Asia/Seoul", quantity: 2 } }] },
+      { type: "tool_calls", calls: [{ name: "add_place_from_external_source", arguments: { externalSourceId: "00000000-0000-4000-8000-000000000003", dayIndex: 1, localStartTime: "10:00", localEndTime: "14:00", quantity: 2 } }] },
       { type: "final", text: "Đã thêm địa điểm và giá web ước tính." },
     ]);
     const base = await setup(model);
@@ -462,7 +486,7 @@ describe("TourAgentService", () => {
     const sourceUrl = "https://visitkorea.example/bukchon";
     const model = new ScriptedModel([
       { type: "tool_calls", calls: [{ name: "search_web", arguments: { query: "Bukchon Hanok Village visitor information" } }] },
-      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Bukchon Hanok Village", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", timezone: "Asia/Seoul", description: "Tham quan làng Hanok", sourceUrl, unpricedReason: "Không tìm thấy nguồn giá đủ tin cậy." } }] },
+      { type: "tool_calls", calls: [{ name: "add_itinerary_item", arguments: { dayIndex: 1, title: "Bukchon Hanok Village", location: "Seoul", localStartTime: "10:00", localEndTime: "12:00", description: "Tham quan làng Hanok", sourceUrl, unpricedReason: "Không tìm thấy nguồn giá đủ tin cậy." } }] },
       { type: "final", text: "Đã thêm địa điểm cùng link nguồn." },
     ]);
     const base = await setup(model);

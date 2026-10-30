@@ -1,10 +1,10 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const redesign = fs.readFileSync('dist/redesign.js', 'utf8');
-const app = fs.readFileSync('dist/app.js', 'utf8');
-const css = fs.readFileSync('dist/redesign.css', 'utf8');
-const sync = fs.readFileSync('dist/api-sync.js', 'utf8');
+const redesign = fs.readFileSync('frontend/redesign.js', 'utf8');
+const app = fs.readFileSync('frontend/app.js', 'utf8');
+const css = fs.readFileSync('frontend/redesign.css', 'utf8');
+const sync = fs.readFileSync('frontend/api-sync.js', 'utf8');
 
 assert.match(redesign, /inputmode="numeric"[^>]+class="price-input"[^>]+placeholder="–"[^>]+value="'\+\(r\.price==null\?'':vndInput\(r\.price\)\)\+'/,
   'Unit prices should render as localized numeric text');
