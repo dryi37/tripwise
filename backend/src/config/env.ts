@@ -19,6 +19,19 @@ const envSchema = z.object({
     z.string().trim().min(1).optional(),
   ),
   GEMMA_MODEL: z.string().trim().min(1),
+  AGENT_MODEL_PROVIDER: z.enum(["gemini", "gx10"]).default("gemini"),
+  GX10_BASE_URL: z.url().default("http://172.16.110.26:7997/v1"),
+  GX10_API_KEY: z.preprocess(
+    (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().trim().min(1).optional(),
+  ),
+  GX10_MODEL: z.string().trim().min(1).default("qwen3.6-35b-a3b"),
+  GX10_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(120_000).default(120_000),
+  GX10_MAX_RETRIES: z.coerce.number().int().min(0).default(2),
+  GX10_MAX_TOOL_RESULT_CONTEXT_CHARS: z.coerce.number().int().positive().default(14_000),
+  GX10_RETRY_BASE_DELAY_MS: z.coerce.number().int().positive().default(500),
+  GX10_RETRY_MAX_DELAY_MS: z.coerce.number().int().positive().default(5_000),
+  GX10_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(4_096),
   AGENT_MODEL_CALLS_PER_DAY: z.coerce.number().int().positive(),
   AGENT_TOOL_CALLS_PER_DAY: z.coerce.number().int().positive(),
   AGENT_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1),
@@ -27,6 +40,8 @@ const envSchema = z.object({
   GEMMA_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive(),
   GEMMA_MAX_RETRIES: z.coerce.number().int().min(0),
   GEMMA_MAX_TOOL_RESULT_CONTEXT_CHARS: z.coerce.number().int().positive(),
+  GEMMA_SUMMARY_TRIGGER_TOKENS: z.coerce.number().int().positive().default(12_000),
+  GEMMA_MAX_INPUT_TOKENS: z.coerce.number().int().positive().default(16_000),
   GEMMA_RETRY_BASE_DELAY_MS: z.coerce.number().int().positive(),
   GEMMA_RETRY_MAX_DELAY_MS: z.coerce.number().int().positive(),
   GEMMA_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive(),
@@ -53,6 +68,10 @@ const envSchema = z.object({
   AGENT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive(),
   API_JSON_BODY_LIMIT_BYTES: z.coerce.number().int().positive(),
   CORS_ALLOWED_ORIGINS: z.string().transform((value) => value.split(",").map((origin) => origin.trim()).filter(Boolean)).pipe(z.array(z.url()).min(1)),
+}).superRefine((environment, context) => {
+  if (environment.AGENT_MODEL_PROVIDER === "gx10" && !environment.GX10_API_KEY) {
+    context.addIssue({ code: "custom", path: ["GX10_API_KEY"], message: "GX10_API_KEY is required when AGENT_MODEL_PROVIDER=gx10" });
+  }
 });
 
 export type Environment = z.infer<typeof envSchema>;

@@ -420,6 +420,8 @@ dd;padding:13px 0;background:transparent;font-size:14px;line-height:1.85;color:#
 @media(max-width:600px){.trip-queue .toolbar{grid-template-columns:1fr}}
 .destination-cover-compact{height:150px;min-height:150px;margin-bottom:14px}.destination-cover-compact .cover-content{padding:18px 28px}.destination-cover-compact .cover-content h2{font-size:26px;margin:4px 0}.destination-cover-compact .cover-content p{margin:0}.itinerary-map-section{background:#fff;border:1px solid #dce5da;border-radius:14px;padding:16px;margin:16px 0}.map-section-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.map-section-heading h2{font-size:18px;margin:3px 0}.map-section-heading>span,.map-attribution{font-size:12px;color:#75877d}.itinerary-map{height:330px;border-radius:10px;overflow:hidden;background:#edf2ea;display:grid;place-items:center}.map-message{max-width:440px;padding:24px;text-align:center;color:#52675b}.map-empty-note{position:absolute;z-index:500;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 28px);padding:9px 13px;border-radius:8px;background:#fff;color:#52675b;box-shadow:0 2px 12px #153b2c33;text-align:center;font-size:13px;pointer-events:none}.map-error{color:#9b4838}.map-attribution{margin:8px 0 0}.map-pin{width:40px;height:40px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--green);border:2px solid white;box-shadow:0 2px 8px #153b2c55;color:#fff;display:grid;place-items:center;font-weight:700}.map-pin::first-letter{transform:rotate(45deg)}.map-info{max-width:290px;padding:5px}.map-info section+section{border-top:1px solid #ddd;margin-top:8px;padding-top:8px}.map-info strong{display:block;color:#173a31}.map-info div{font-size:12px;color:#66756e;margin-top:3px}.map-info p{white-space:normal;margin:6px 0 2px;line-height:1.45}.place-picker{position:relative;z-index:1}.place-results{display:grid;gap:5px;margin-top:7px;max-height:220px;overflow:auto}.place-results:empty{display:none}.place-results:not(:empty){position:absolute;z-index:40;top:calc(100% + 4px);left:0;right:0;display:grid;gap:5px;margin:0;padding:5px;border:1px solid #dce5da;border-radius:8px;background:#fff;box-shadow:0 8px 22px #183a2c24}.place-result{display:grid;text-align:left;gap:3px;padding:9px 11px;border:1px solid #dce5da;border-radius:8px;background:white;color:#173a31;cursor:pointer}.place-result:hover,.place-result[aria-selected=true]{border-color:#669640;background:#f3f7e9}.place-result span,.place-picker small,.place-picker-status{font-size:12px;color:#64766c}.place-picker-status{margin:5px 0}.place-search-retry{justify-self:start;padding:5px 10px;border:1px solid #dce5da;border-radius:7px;background:#fff;color:var(--green);cursor:pointer}.place-search-retry:hover{background:#f3f7e9;border-color:#669640}.modal-body .place-picker input[type=search]{width:100%;padding:10px 12px;border:1px solid #dce5da;border-radius:8px}.map-info{font-family:Arial,sans-serif}
 .map-pin{padding:0;color:white;cursor:pointer}.map-pin span{transform:rotate(45deg)}.map-pin:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
+.map-route-distance{padding:3px 7px;border:1px solid var(--green);border-radius:999px;background:#fff;color:var(--green);box-shadow:0 1px 5px #153b2c33;font-size:11px;font-weight:700;white-space:nowrap}.map-route-distance::before{display:none}
+.map-route-status{position:absolute;z-index:1000;top:10px;left:50%;transform:translateX(-50%);max-width:calc(100% - 100px);padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--green);box-shadow:0 1px 5px #153b2c22;text-align:center;font-size:12px;pointer-events:none}.map-route-status.is-error{border-color:var(--lime);color:var(--green)}
 
 /* Shared visual language: compact editorial type and hairline geometry in the existing IKIGAI palette. */
 :root{
@@ -508,6 +510,50 @@ td{padding:11px 12px}
 .entry-section-heading h2,.map-section-heading h2,.quote-selected>h3,.quote-source-list .section-head h3{letter-spacing:-.02em}
 #modal .modal-head h2{font-weight:600;letter-spacing:-.025em}
 .settings-grid>.panel,.quote-selected,.quote-source-list,.knowledge-explainer,.supplier-guidance{box-shadow:var(--shadow-hairline)}
+
+/* Keep service tabs and their counters in place when selection changes. */
+.service-source-tabs a{flex:0 0 112px;font-weight:600}
+.service-source-tabs a.active{font-weight:600}
+.external-service-name>strong{font-size:12px;line-height:1.45;font-weight:650;color:#244b3c}
+
+/* Assistant rail: readable conversation and one calm, clearly focused composer. */
+.advisor-panel{gap:12px;min-width:0}
+.ai-head{gap:11px;padding:15px 18px}
+.ai-head h2{font-size:15px;letter-spacing:-.01em}
+.ai-head>div>span{font-size:11px}
+.ai-symbol{flex:0 0 36px;width:36px;height:36px}
+.ai-context{margin:14px 18px 0;padding:13px 14px;border-radius:var(--radius-control)}
+.ai-context>span{font-size:10px;letter-spacing:.09em}
+.ai-context b{font-size:13px}
+.ai-context p{font-size:11px;line-height:1.55}
+.chat-upgrade{padding:17px 18px 16px}
+.assistant-label{gap:7px;font-size:10px;letter-spacing:.1em;margin-bottom:9px}
+.assistant-label .tw-icon{width:15px;height:15px}
+.bubble{padding:13px 14px;border-radius:3px 10px 10px 10px;font-size:13px;line-height:1.65}
+.ai-suggestions{gap:8px;margin:14px 0 16px}
+.ai-suggestions>button,.ai-suggestions>a{min-height:40px;padding:9px 12px;font-size:12px}
+.chat-upgrade form{padding:11px 12px 10px;border-color:#cdddcf;border-radius:var(--radius-control);transition:border-color .15s ease,box-shadow .15s ease}
+.chat-upgrade form:focus-within{border-color:var(--green);box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 16%,transparent)}
+.chat-upgrade form>label{font-size:11px;font-weight:600;color:#526e5b}
+.chat-upgrade textarea{display:block;min-height:76px;padding:8px 0 10px;border-radius:0;font-size:13px;line-height:1.55}
+.chat-upgrade textarea:focus-visible{outline:none}
+.chat-upgrade textarea::placeholder{color:#87958b;opacity:1}
+.composer-bottom{min-height:36px;justify-content:flex-end;font-size:10px}
+.chat-upgrade .composer-bottom button{width:36px;height:36px;border-radius:8px;transition:background-color .15s ease,transform .15s ease}
+.chat-upgrade .composer-bottom button:hover{background:var(--green-hover)}
+.composer-bottom button .tw-icon{width:17px;height:17px}
+.ai-foot{gap:8px;padding:12px 18px;font-size:11px;line-height:1.55}
+.ai-foot .tw-icon{flex:0 0 14px;width:14px;height:14px;margin-top:2px}
+@media(max-width:700px){
+  .advisor-panel{gap:10px}
+  .ai-head{padding:14px 16px}
+  .ai-context{margin:12px 16px 0;padding:12px 13px}
+  .chat-upgrade{padding:15px 16px}
+  .ai-foot{padding:11px 16px}
+  .chat-upgrade textarea{min-height:74px}
+  .chat-upgrade .composer-bottom button{width:44px;height:44px}
+  .composer-bottom{min-height:44px}
+}
 
 @media(max-width:700px){
   .trip-spotlight{min-height:0}

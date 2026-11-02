@@ -22,6 +22,7 @@ export interface AgentModelInput {
   budget?: { tripDays: number; modelTurnLimit: number; toolCallLimit: number; toolsExecuted: number };
   toolResults?: Array<{ tool: string; result: unknown; query?: string }>;
   history?: AgentHistoryEntry[];
+  contextSummary?: string;
   completionFallback?: { missingDayIndices: number[]; modelCallsRemaining: number; toolCallsRemaining: number };
 }
 
@@ -32,4 +33,7 @@ export interface AgentModelCallOptions {
 
 export interface AgentModel {
   decide(input: AgentModelInput, options?: AgentModelCallOptions): Promise<AgentDecision>;
+  summarizeContext?(input: AgentModelInput, previous: AgentContextSummary | null, options: AgentModelCallOptions): Promise<AgentContextSummary | null>;
 }
+
+export interface AgentContextSummary { text: string; through: number }

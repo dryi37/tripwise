@@ -1,6 +1,51 @@
 'use strict';
 (function(global){
   let active=null,sequence=0;
+  function distinctRoutePoints(points){
+    return points.filter((point,index)=>index===0||point.latitude.toFixed(5)!==points[index-1].latitude.toFixed(5)||point.longitude.toFixed(5)!==points[index-1].longitude.toFixed(5));
+  }
+  function routeDistanceLabel(meters){
+    return meters<1000?Math.round(meters/10)*10+' m':(meters/1000).toLocaleString('vi-VN',{maximumFractionDigits:1})+' km';
+  }
+  function addRouteStatus(map,text){
+    const status=document.createElement('div');status.className='map-route-status';status.setAttribute('role','status');status.textContent=text;map.getContainer().append(status);return status;
+  }
+  async function drawDrivingRoute(map,points,controller,token){
+    const waypoints=distinctRoutePoints(points);if(waypoints.length<2)return;
+    const status=addRouteStatus(map,'Đang tìm tuyến đường…');
+    const coordinates=waypoints.map(point=>point.longitude+','+point.latitude).join(';');
+    const url='https://router.project-osrm.org/route/v1/driving/'+coordinates+'?steps=true&geometries=geojson&overview=false';
+    try{
+      const response=await fetch(url,{signal:controller.signal});if(!response.ok)throw new Error('OSRM HTTP '+response.status);
+      const result=await response.json(),route=result.routes?.[0];
+      if(result.code!=='Ok'||!route||!Array.isArray(route.legs)||route.legs.length!==waypoints.length-1)throw new Error('OSRM route unavailable');
+      if(!active||active.token!==token)return;
+      const preparedLegs=route.legs.map(leg=>{
+        const coordinates=[];
+        for(const step of leg.steps||[])for(const pair of step.geometry?.coordinates||[]){
+          if(!Array.isArray(pair)||!Number.isFinite(pair[0])||!Number.isFinite(pair[1]))continue;
+          const last=coordinates[coordinates.length-1];if(!last||last[0]!==pair[0]||last[1]!==pair[1])coordinates.push(pair);
+        }
+        if(coordinates.length<2||!Number.isFinite(leg.distance))return null;
+        const latLngs=coordinates.map(([longitude,latitude])=>[latitude,longitude]);
+        return {distance:leg.distance,latLngs};
+      });
+      if(preparedLegs.some(leg=>!leg))throw new Error('OSRM route geometry unavailable');
+      status.remove();
+      const routeBounds=[],routeColor=getComputedStyle(document.documentElement).getPropertyValue('--green').trim()||'#004832',idleRouteColor='color-mix(in srgb, '+routeColor+' 52%, white)';
+      preparedLegs.forEach(({distance,latLngs})=>{
+        for(const latLng of latLngs)routeBounds.push(latLng);
+        const line=global.L.polyline(latLngs,{color:idleRouteColor,weight:5,opacity:.9,lineCap:'round',lineJoin:'round'}).addTo(map);
+        line.bindTooltip(routeDistanceLabel(distance),{permanent:true,direction:'center',className:'map-route-distance'});
+        line.on('mouseover',()=>line.setStyle({color:routeColor,opacity:.98,weight:6}).bringToFront());
+        line.on('mouseout',()=>line.setStyle({color:idleRouteColor,opacity:.9,weight:5}));
+      });
+      if(routeBounds.length>1)map.fitBounds(routeBounds,{padding:[32,32]});
+    }catch(error){
+      if(error?.name==='AbortError'||!active||active.token!==token)return;
+      status.textContent='Tuyến đường hiện chưa khả dụng.';status.classList.add('is-error');
+    }
+  }
   function mount(tripId,dayIndex){
     const host=document.querySelector('#itinerary-map');if(!host){dispose();return}
     if(active?.tripId===tripId&&active.dayIndex===dayIndex&&active.host===host)return;
@@ -41,6 +86,7 @@
         marker.on('focus',()=>marker.openPopup());
         marker.on('blur',()=>marker.closePopup());
       }
+      drawDrivingRoute(map,points,controller,token);
       if(bounds.length>1)map.fitBounds(bounds,{padding:[32,32]});
       const unresolved=(response.data||[]).filter(item=>item.status==='unresolved').length;
       const outside=(response.data||[]).filter(item=>item.status==='outside_destination').length;

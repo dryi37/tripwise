@@ -9,6 +9,7 @@ import { TripService } from "./modules/trips/trip.service.js";
 import { PrismaPlanningRepository } from "./modules/planning/infrastructure/prisma-planning.repository.js";
 import { PlanningService } from "./modules/planning/planning.service.js";
 import { GemmaAgentModel } from "./modules/agent/infrastructure/gemma-agent.model.js";
+import { OpenAICompatibleAgentModel } from "./modules/agent/infrastructure/openai-compatible-agent.model.js";
 import { TourAgentService } from "./modules/agent/tour-agent.service.js";
 import { PrismaCatalogRepository } from "./modules/catalog/infrastructure/prisma-catalog.repository.js";
 import { CatalogService } from "./modules/catalog/catalog.service.js";
@@ -52,6 +53,28 @@ const webSearchService = new WebSearchService(new TavilyWebSearchProvider(enviro
 const planningService = new PlanningService(tripRepository, new PrismaPlanningRepository(prisma), undefined, catalogService, externalSourceService, environment.APP_TIMEZONE, new FrankfurterExchangeRateProvider(environment.FX_RATE_API_URL, environment.FX_RATE_TIMEOUT_MS, environment.FX_RATE_CACHE_TTL_MS), placesService);
 const idempotencyService = new IdempotencyService(new PrismaIdempotencyStore(prisma));
 const versionService = new VersionService(new PrismaVersionRepository(prisma), tripService, planningService);
+const agentModel = environment.AGENT_MODEL_PROVIDER === "gx10"
+  ? new OpenAICompatibleAgentModel({
+      baseUrl: environment.GX10_BASE_URL,
+      apiKey: environment.GX10_API_KEY,
+      model: environment.GX10_MODEL,
+      requestTimeoutMs: environment.GX10_REQUEST_TIMEOUT_MS,
+      maxRetries: environment.GX10_MAX_RETRIES,
+      maxToolResultContextChars: environment.GX10_MAX_TOOL_RESULT_CONTEXT_CHARS,
+      retryBaseDelayMs: environment.GX10_RETRY_BASE_DELAY_MS,
+      retryMaxDelayMs: environment.GX10_RETRY_MAX_DELAY_MS,
+      maxOutputTokens: environment.GX10_MAX_OUTPUT_TOKENS,
+    })
+  : new GemmaAgentModel(environment.GEMINI_API_KEY, environment.GEMMA_MODEL, {
+      requestTimeoutMs: environment.GEMMA_REQUEST_TIMEOUT_MS,
+      maxRetries: environment.GEMMA_MAX_RETRIES,
+      maxToolResultContextChars: environment.GEMMA_MAX_TOOL_RESULT_CONTEXT_CHARS,
+      summaryTriggerTokens: environment.GEMMA_SUMMARY_TRIGGER_TOKENS,
+      maxInputTokens: environment.GEMMA_MAX_INPUT_TOKENS,
+      retryBaseDelayMs: environment.GEMMA_RETRY_BASE_DELAY_MS,
+      retryMaxDelayMs: environment.GEMMA_RETRY_MAX_DELAY_MS,
+      maxOutputTokens: environment.GEMMA_MAX_OUTPUT_TOKENS,
+    });
 const knowledgeService = new KnowledgeService(
   new PrismaKnowledgeRepository(prisma),
   new GeminiEmbeddingProvider(environment.GEMINI_API_KEY, environment.EMBEDDING_MODEL),
@@ -61,14 +84,7 @@ const knowledgeService = new KnowledgeService(
 const tourAgentService = new TourAgentService(
   tripService,
   planningService,
-  new GemmaAgentModel(environment.GEMINI_API_KEY, environment.GEMMA_MODEL, {
-    requestTimeoutMs: environment.GEMMA_REQUEST_TIMEOUT_MS,
-    maxRetries: environment.GEMMA_MAX_RETRIES,
-    maxToolResultContextChars: environment.GEMMA_MAX_TOOL_RESULT_CONTEXT_CHARS,
-    retryBaseDelayMs: environment.GEMMA_RETRY_BASE_DELAY_MS,
-    retryMaxDelayMs: environment.GEMMA_RETRY_MAX_DELAY_MS,
-    maxOutputTokens: environment.GEMMA_MAX_OUTPUT_TOKENS,
-  }),
+  agentModel,
   environment.AGENT_MODEL_CALLS_PER_DAY,
   environment.AGENT_TOOL_CALLS_PER_DAY,
   catalogService,

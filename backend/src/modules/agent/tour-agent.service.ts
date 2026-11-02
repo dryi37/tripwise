@@ -13,7 +13,7 @@ import type { KnowledgeService } from "../knowledge/knowledge.service.js";
 import type { WebSearchService } from "../web-search/web-search.service.js";
 import type { ExternalSourceService } from "../external-sources/external-source.service.js";
 import type { PlacesService } from "../places/places.service.js";
-import type { AgentDecision, AgentHistoryEntry, AgentModel, AgentModelInput } from "./agent-model.js";
+import type { AgentContextSummary, AgentDecision, AgentHistoryEntry, AgentModel, AgentModelInput } from "./agent-model.js";
 import { addItineraryItemToolSchema, searchKnowledgeToolSchema, searchPlacesToolSchema, searchSupplierOffersToolSchema, searchWebToolSchema } from "./tour-agent.schemas.js";
 import type { RunTourAgentInput, TourAgentResult } from "./tour-agent.types.js";
 
@@ -36,6 +36,7 @@ const AgentState = Annotation.Root({
   draft: Annotation<ItineraryDraft | null>,
   decision: Annotation<AgentDecision | null>,
   summary: Annotation<string>,
+  contextSummary: Annotation<AgentContextSummary | null>,
   modelTurns: Annotation<number>,
   toolsExecuted: Annotation<number>,
   webSearchCalls: Annotation<number>,
@@ -148,6 +149,7 @@ export class TourAgentService {
     if (!Number.isSafeInteger(requestTimeoutMs) || !requestTimeoutMs || requestTimeoutMs < 1) throw new Error("Agent run timeout must be configured");
     this.requestTimeoutMs = requestTimeoutMs;
     this.graph = new StateGraph(AgentState)
+      .addNode("context-summary", async (state) => this.summarizeContext(state))
       .addNode("model", async (state) => this.runModel(state))
       .addNode("tools", async (state) => this.runTools(state))
       .addNode("completion-fallback-finalize", async (state) => this.finalizeCompletionFallback(state))
@@ -155,14 +157,15 @@ export class TourAgentService {
         agentLogger.warn({ event: "tour_agent.model_budget.exhausted", runId: state.runId, tripId: state.tripId, tripDays: state.tripDays, modelTurns: state.modelTurns, modelTurnLimit: state.modelTurnLimit, toolsExecuted: state.toolsExecuted, toolCallLimit: state.toolCallLimit });
         throw new ApiError(503, "AGENT_ITERATION_LIMIT", "The agent did not finish within the allowed model calls per trip day", { tripDays: state.tripDays, modelTurns: state.modelTurns, modelTurnLimit: state.modelTurnLimit, toolsExecuted: state.toolsExecuted, toolCallLimit: state.toolCallLimit });
       })
-      .addEdge(START, "model")
+      .addEdge(START, "context-summary")
+      .addEdge("context-summary", "model")
       .addConditionalEdges("model", (state) => {
         if (state.completionFallbackPhase === "FINALIZE") return "completion-fallback-finalize";
         if (state.decision?.type === "final") return END;
         if (state.completionFallbackPhase !== "NONE") return "tools";
         return state.modelTurns >= state.normalModelTurnLimit ? "limit" : "tools";
       })
-      .addConditionalEdges("tools", (state) => state.completionFallbackPhase === "FINALIZE" ? "completion-fallback-finalize" : "model")
+      .addConditionalEdges("tools", (state) => state.completionFallbackPhase === "FINALIZE" ? "completion-fallback-finalize" : "context-summary")
       .addEdge("completion-fallback-finalize", END)
       .addEdge("limit", END)
       .compile();
@@ -209,13 +212,14 @@ export class TourAgentService {
         draft: null,
         decision: null,
         summary: "",
+        contextSummary: null,
         modelTurns: 0,
         toolsExecuted: 0,
         webSearchCalls: 0,
         toolResults: [],
         history: [],
         sources: [],
-      }, { recursionLimit: modelTurnLimit * 4 + 5 });
+      }, { recursionLimit: modelTurnLimit * 6 + 10 });
       if (Date.now() >= deadlineAt) throw this.timeoutError();
       if (!result.draft || !result.summary) {
         throw new ApiError(500, "AGENT_INVALID_RESULT", "The agent returned an incomplete result");
@@ -270,9 +274,26 @@ export class TourAgentService {
     }
   }
 
-  private async runModel(state: typeof AgentState.State): Promise<Partial<typeof AgentState.State>> {
+  private async summarizeContext(state: typeof AgentState.State): Promise<Partial<typeof AgentState.State>> {
+    if (state.completionFallbackPhase !== "NONE" || !this.model.summarizeContext) return {};
+    const timeoutMs = state.deadlineAt - Date.now();
+    if (timeoutMs <= 0) throw this.timeoutError();
     const trip = state.trip ?? await this.trips.get(state.tripId);
     const draft = await this.planning.getDraft(state.tripId);
+    const contextSummary = await this.model.summarizeContext({
+      instruction: state.instruction, trip, draft, turn: state.modelTurns + 1,
+      budget: { tripDays: state.tripDays, modelTurnLimit: state.normalModelTurnLimit, toolCallLimit: state.normalToolCallLimit, toolsExecuted: state.toolsExecuted },
+      toolResults: state.toolResults,
+    }, state.contextSummary, {
+      runId: state.runId, signal: AbortSignal.timeout(timeoutMs),
+    });
+    return { contextSummary, trip, draft };
+  }
+
+  private async runModel(state: typeof AgentState.State): Promise<Partial<typeof AgentState.State>> {
+    const trip = state.trip ?? await this.trips.get(state.tripId);
+    const draft = state.completionFallbackPhase === "NONE" && this.model.summarizeContext && state.draft
+      ? state.draft : await this.planning.getDraft(state.tripId);
     const timeoutMs = state.deadlineAt - Date.now();
     if (timeoutMs <= 0) throw this.timeoutError();
     const signal = AbortSignal.timeout(timeoutMs);
@@ -300,7 +321,10 @@ export class TourAgentService {
             toolCallsRemaining: Math.max(0, state.completionFallbackToolCallLimit - state.completionFallbackToolsExecuted),
           },
           history: state.history,
-        } : { toolResults: state.toolResults }),
+        } : {
+          toolResults: state.contextSummary ? state.toolResults.slice(state.contextSummary.through) : state.toolResults,
+          ...(state.contextSummary ? { contextSummary: state.contextSummary.text } : {}),
+        }),
       }, { runId: state.runId, signal });
       if (Date.now() >= state.deadlineAt) throw this.timeoutError();
     } catch (error) {
