@@ -13,13 +13,29 @@ These are interaction references, not copied assets or claims about internal arc
 ## Scope
 Refresh shared shell, trip list, itinerary editor, quote provenance, knowledge/rate lists and dialogs. Add a bounded sample source catalog, source detail, explicit quotation addition/update and local client preview. No customer messaging, payments or real booking. Customer requirements, schedule, quote and source snapshots persist locally and travel together in versions. Use shared existing forms, modal and toast.
 ## Visual tokens
-Runtime owner: frontend/redesign.css :root overrides maintained frontend/styles.css.
-- Forest green --green #075342: primary actions and selected days.
-- IKIGAI lime --lime #c3df55: selected primary navigation.
-- Cool canvas --canvas #f6f8f8; white --surface #fff.
-- Text --text #203e38; muted --muted #607772; line --line #dce5e2.
-- External-source blue --blue #386b98, distinguished with text and globe icon.
-Type: Segoe UI / Arial offline stack. Heading 26–28px semibold, body 14px, controls 12–13px, secondary metadata 10–12px. Display and utility use different scale/weight rather than network fonts. Responsive layout increases key mobile sizes.
+Runtime owner: `frontend/styles.css` defines the base palette; `frontend/redesign.css` owns the application-wide refinements and screen-specific layout.
+- Forest green `--green #004832`: primary actions, selected itinerary days, and brand navigation.
+- IKIGAI lime `--lime #afc92a`: selected primary navigation and restrained emphasis.
+- Brand values sampled from the flat fills of the company logo image supplied for this refresh.
+- Cool canvas `--canvas #f4f6f2`; white surfaces `#fff`.
+- Text `--text #233d33`; muted `--muted #6b7b71`; line `--line #e0e7df`.
+- Existing semantic colors communicate statuses and external-source provenance. Do not add, remove, or recolor brand and status tokens as part of visual refinements.
+Type uses the offline Segoe UI / Arial stack. Use an editorial hierarchy with compact, readable body copy, tightly tracked headings, and restrained monospace eyebrows for technical context. Controls keep an application-scale hit area and use compact geometry. Responsive layout preserves readable text and usable controls on mobile.
+
+### Type, spacing, shape, and elevation
+- `--font-ui`: `"Segoe UI", Arial, sans-serif`; `--font-technical`: `"Cascadia Mono", "SFMono-Regular", Consolas, monospace`.
+- Page titles range from 26–32px by screen; section headings use 16–19px; body copy uses 14px; controls use 12–14px. Uppercase eyebrows and table headings use the technical face at 10px.
+- Spacing aliases use a 4px base: 4, 8, 12, 16, 24, and 32px.
+- Controls use 6px corners, content surfaces use 10px, and overlays use 12px. Status/source badges remain compact squares.
+- Cards use a fine border and minimal hairline shadow. Floating overlays retain their existing stronger shadow for separation.
+- Runtime mapping: palette variables stay in `frontend/styles.css`; typography, spacing, radii, and elevation aliases live in `frontend/redesign.css` and are consumed by shared shell and screen classes.
+
+### Component dimensions
+- Compact actions use a 32px minimum height; standard buttons, fields, and tabs use 40px; primary form actions use 44px. Icon actions are 36px on desktop and at least 44px on touch layouts.
+- Badges use a 24px minimum height. Editable quote-table fields may use the compact 32px size on desktop to preserve table density.
+- Surface padding has three roles: compact 16px, standard 20px, and featured 24px. Section gaps use 16px and major section gaps use 24px.
+- Textareas keep their own comfortable minimum height; dimensions may grow with content. Table rows remain content-driven with consistent 10–12px vertical cell padding.
+- At widths below 700px, interactive controls and navigation tabs use a 44px target where their layout permits. Dense editable tables remain horizontally scrollable rather than compressing their columns.
 ## Layout
 216px desktop navigation, 68px header. Workspace main canvas plus compact assistant/requirements/budget rail. The itinerary uses a compact destination cover, a day selector, the activity timeline, then that day's map. Pins represent only activities linked to a selected OSM place; hovering, focusing, or tapping shows the agent's selection reason. Unresolved legacy activities remain in the accessible timeline without invented pins. At 850px the rail moves below; at 600px navigation becomes a bottom bar.
 ## Signature
@@ -36,6 +52,13 @@ The #intake route and New trip action open a blank brief form. Existing trips wi
 
 ## Simplified advisor rail
 Removed customer requirements summary panel and the relax-itinerary shortcut at user request. Intake and editable trip requirements remain available through existing flows. Advisor rail contains assistant and budget only.
+
+## Vercel reference adaptation — application visual system
+The supplied Vercel analysis is a reference for typography hierarchy, hairline structure, compact application controls, restrained elevation, and consistent spacing. IKIGAI's current runtime colors above remain fixed. Vercel's black-and-white palette, accent colors, mesh gradients, and marketing button shapes do not transfer to Tripwise.
+
+Apply the visual system across the shared shell, trips dashboard, intake, itinerary, quotation, checks, saved versions, knowledge library, supplier catalog, settings, and dialogs. Keep the operational density and existing responsive layouts. Use the brand green in the primary-action role, lime for existing active emphasis, white surfaces over the cool canvas, and the current line color for fine borders. Keep cards nearly flat, use subtle elevation for overlays, and reserve monospace uppercase labels for small technical eyebrows. The local system font stack remains the runtime font source; no remote font dependency is introduced.
+
+This is a presentation-only refresh. Preserve route behavior, forms, validation, search and pagination state, data contracts, source provenance, pricing and status semantics, and all existing accessibility behavior. Do not change application copy or add Vercel assets. The existing active-trip spotlight remains a concise working brief, not a marketing hero.
 ## Compact intake visual revision
 User requested a redesign of the whole intake screen. One white form card combines brief and a four-column desktop grid. Heading is now Thiết kế chuyến đi with a real two-step indicator. A compact live planning summary replaces generic instructional panels; it reflects form values only, no AI extraction. Desktop sidebar uses the existing forest green and lime palette. Mobile fields use two columns with full-width name/client/destination/budget. Removed introductory copy and AI heading decoration remain absent. Existing review, draft, generation and manual-start logic are reused.
 ## Practical trips dashboard
